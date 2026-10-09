@@ -16,19 +16,19 @@ public struct LocalModelInfo: Identifiable, Hashable, Sendable {
 public enum LocalModelCatalog {
     public static let models: [LocalModelInfo] = [
         LocalModelInfo(
-            id: "qwen2.5-3b",
-            name: "Better: Qwen2.5 3B",
-            detail: "2.1 GB · more accurate, about 2 seconds per mail",
-            url: URL(string: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf")!,
-            sha256: "626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d",
-            size: 2_104_932_768),
-        LocalModelInfo(
             id: "qwen2.5-1.5b",
-            name: "Faster: Qwen2.5 1.5B",
-            detail: "1.1 GB · quicker, a bit less accurate",
+            name: "Qwen2.5 1.5B (recommended)",
+            detail: "1.1 GB · about 1 second per mail, sorted 6 of 6 test mails correctly",
             url: URL(string: "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf")!,
             sha256: "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
             size: 1_117_320_736),
+        LocalModelInfo(
+            id: "qwen2.5-3b",
+            name: "Qwen2.5 3B",
+            detail: "2.1 GB · larger and slower, sorted 5 of 6 test mails correctly",
+            url: URL(string: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf")!,
+            sha256: "626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d",
+            size: 2_104_932_768),
     ]
 
     public static var defaultModel: LocalModelInfo { models[0] }

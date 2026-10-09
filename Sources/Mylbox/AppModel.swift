@@ -69,6 +69,10 @@ final class AppModel {
         reload()
         startTimer()
         Task { await syncAll() }
+        // llama.cpp must release its Metal resources before the process exits, or it aborts on quit.
+        NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { self.localModel = nil }
+        }
     }
 
     // MARK: Config

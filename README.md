@@ -4,20 +4,22 @@ A calm, keyboard-friendly mail app for macOS that sorts your mail for you and sh
 
 - **One inbox for all accounts**: Gmail, iCloud, Outlook / Microsoft 365 and any IMAP provider.
 - **Sorted automatically**: *Inbox* shows only important mail. *Updates* (receipts, notifications) and *Newsletters* get their own place. *Needs Reply* collects mails someone is waiting on.
-- **On-device AI**: Apple Intelligence sorts mail, spots mails that need a reply and writes one-line summaries. Nothing leaves the Mac. Without Apple Intelligence, simple built-in rules do the sorting.
+- **Local AI, built in**: an open-source model (Qwen2.5 1.5B via llama.cpp) runs on the Mac. It sorts mail into Important / Updates / Newsletters / Spam, spots mails that need a reply and writes one-line summaries. Nothing leaves the Mac, and it works the same for every mail provider. Download the model once in Settings → General. Until then, simple built-in rules do the sorting.
+- **Spam**: the AI flags spam into its own folder. *Mark as Spam* also moves a mail to the server's junk folder, which trains your provider's filter.
 - **Rules**: "if from / to / subject / body … then add to a space, set a category, mark read, flag, archive".
 - **Spaces → other projects**: a space (e.g. *Volleyball Finance*) collects mails about one topic and mirrors them as Markdown into a folder of another repository, so that project and its AI assistant have the full mail context.
 - **Private by default**: remote images are blocked until you load them, scripts never run, and passwords live in the Keychain.
 
 ## Build & run
 
-Requires macOS 26 and Xcode 26.
+Requires macOS 26 and Xcode 26. llama.cpp is pulled in as a pinned, checksum-verified binary (release b11165).
 
 ```sh
 scripts/build-app.sh            # builds and signs build/Mylbox.app (Developer ID if available)
 scripts/build-app.sh --install  # also copies it to /Applications
 swift test                      # unit tests
 MYLBOX_NET_TESTS=1 swift test --filter NetworkTests   # connection checks against Gmail/iCloud/Outlook
+MYLBOX_MODEL=/path/to/model.gguf swift test --filter LocalModelTests   # classifies sample mails with a real model
 ```
 
 To open it in Xcode, open `Package.swift`. Data lives in `~/Library/Application Support/mylbox`; set `MYLBOX_HOME` to use another folder, for example for testing.
@@ -69,6 +71,15 @@ each mail is a Markdown file in `mail/messages/`, attachments are in `mail/attac
 
 Turn on *Keep mails out of git* if the mails should stay local and not be committed. Note that some tools skip files ignored by git when searching.
 
+## Local AI
+
+| Model | Download | Notes |
+|---|---|---|
+| Qwen2.5 1.5B (default) | 1.1 GB | ~1 s per mail on Apple Silicon, 6/6 on the sample mails |
+| Qwen2.5 3B | 2.1 GB | ~1.4 s per mail, 5/6 on the sample mails |
+
+Models are stored in `~/Library/Application Support/mylbox/models` and checked against their published SHA-256 after downloading. A grammar forces the model's output into a fixed JSON shape, so classifications can't come back malformed. Rules and your own choices always win over the AI.
+
 ## Keyboard
 
 | Key | Action |
@@ -90,7 +101,7 @@ Sources/MylboxCore      no UI, unit-tested
   Net/        TextConnection (SwiftNIO + TLS/STARTTLS), IMAP client and parser, SMTP, Microsoft OAuth
   Mail/       MIME parser, message builder, sync engine, server actions, credentials
   Storage/    SQLite message store, config (JSON), Keychain
-  Automation/ heuristics, rules engine, on-device triage (FoundationModels)
+  Automation/ heuristics, rules engine, local model (llama.cpp), model download, triage
   Export/     space → Markdown exporter
 Sources/Mylbox          SwiftUI app (AppModel + views)
 ```
