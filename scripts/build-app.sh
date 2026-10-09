@@ -1,22 +1,22 @@
 #!/bin/zsh
-# Builds Mylbox.app into ./build and signs it with your Developer ID (falls back to ad-hoc signing).
+# Builds RallyMail.app into ./build and signs it with your Developer ID (falls back to ad-hoc signing).
 # Usage: scripts/build-app.sh [--install]   (--install copies the app to /Applications)
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-swift build -c release --product Mylbox
-BIN="$(swift build -c release --show-bin-path)/Mylbox"
-APP="build/Mylbox.app"
+swift build -c release --product RallyMail
+BIN="$(swift build -c release --show-bin-path)/RallyMail"
+APP="build/RallyMail.app"
 VERSION="0.1.0"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$BIN" "$APP/Contents/MacOS/Mylbox"
+cp "$BIN" "$APP/Contents/MacOS/RallyMail"
 
 # Embed llama.cpp and let the executable find it in Contents/Frameworks.
 mkdir -p "$APP/Contents/Frameworks"
 cp -R "$(dirname "$BIN")/llama.framework" "$APP/Contents/Frameworks/"
-install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/Mylbox" 2>/dev/null || true
+install_name_tool -add_rpath "@executable_path/../Frameworks" "$APP/Contents/MacOS/RallyMail" 2>/dev/null || true
 [[ -f Resources/AppIcon.icns ]] && cp Resources/AppIcon.icns "$APP/Contents/Resources/AppIcon.icns"
 
 cat > "$APP/Contents/Info.plist" <<PLIST
@@ -24,10 +24,10 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-    <key>CFBundleName</key><string>mylbox</string>
-    <key>CFBundleDisplayName</key><string>mylbox</string>
-    <key>CFBundleIdentifier</key><string>ch.mylbox.app</string>
-    <key>CFBundleExecutable</key><string>Mylbox</string>
+    <key>CFBundleName</key><string>RallyMail</string>
+    <key>CFBundleDisplayName</key><string>RallyMail</string>
+    <key>CFBundleIdentifier</key><string>ch.rallymail.app</string>
+    <key>CFBundleExecutable</key><string>RallyMail</string>
     <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>${VERSION}</string>
@@ -52,9 +52,9 @@ else
 fi
 
 if [[ "${1:-}" == "--install" ]]; then
-    rm -rf /Applications/Mylbox.app
+    rm -rf /Applications/RallyMail.app
     cp -R "$APP" /Applications/
-    echo "Installed to /Applications/Mylbox.app"
+    echo "Installed to /Applications/RallyMail.app"
 else
     echo "Built $APP"
 fi

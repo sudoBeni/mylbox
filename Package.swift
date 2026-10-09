@@ -2,10 +2,10 @@
 import PackageDescription
 
 let package = Package(
-    name: "Mylbox",
+    name: "RallyMail",
     platforms: [.macOS(.v26)],
     products: [
-        .executable(name: "Mylbox", targets: ["Mylbox"]),
+        .executable(name: "RallyMail", targets: ["RallyMail"]),
     ],
     dependencies: [
         .package(url: "https://github.com/apple/swift-nio.git", from: "2.65.0"),
@@ -19,7 +19,7 @@ let package = Package(
             checksum: "f55ff56e7e40d72cf192cb065f60e81de52d1597aa6d5bb347989efda876b36d"
         ),
         .target(
-            name: "MylboxCore",
+            name: "RallyMailCore",
             dependencies: [
                 "llama",
                 .product(name: "NIOCore", package: "swift-nio"),
@@ -30,13 +30,13 @@ let package = Package(
             linkerSettings: [.linkedLibrary("sqlite3")]
         ),
         .executableTarget(
-            name: "Mylbox",
-            dependencies: ["MylboxCore"],
+            name: "RallyMail",
+            dependencies: ["RallyMailCore"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
         .testTarget(
-            name: "MylboxCoreTests",
-            dependencies: ["MylboxCore"],
+            name: "RallyMailCoreTests",
+            dependencies: ["RallyMailCore"],
             swiftSettings: [.swiftLanguageMode(.v5)]
         ),
     ]
