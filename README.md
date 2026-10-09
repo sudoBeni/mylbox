@@ -4,7 +4,7 @@ A calm, keyboard-friendly mail app for macOS that sorts your mail for you and sh
 
 - **One inbox for all accounts**: Gmail, iCloud, Outlook / Microsoft 365 and any IMAP provider.
 - **Sorted automatically**: *Inbox* shows only important mail. *Updates* (receipts, notifications) and *Newsletters* get their own place. *Needs Reply* collects mails someone is waiting on.
-- **Local AI, built in**: an open-source model (Qwen2.5 1.5B via llama.cpp) runs on the Mac. It sorts mail into Important / Updates / Newsletters / Spam, spots mails that need a reply and writes one-line summaries. Nothing leaves the Mac, and it works the same for every mail provider. Download the model once in Settings → General. Until then, simple built-in rules do the sorting.
+- **Local AI, built in**: an open-source model (Qwen3.5 4B via llama.cpp) runs on the Mac. It sorts mail into Important / Updates / Newsletters / Spam, spots mails that need a reply and writes one-line summaries. Nothing leaves the Mac, and it works the same for every mail provider. Download the model once in Settings → General. Until then, simple built-in rules do the sorting.
 - **Spam**: the AI flags spam into its own folder. *Mark as Spam* also moves a mail to the server's junk folder, which trains your provider's filter.
 - **Rules**: "if from / to / subject / body … then add to a space, set a category, mark read, flag, archive".
 - **Spaces → other projects**: a space (e.g. *Volleyball Finance*) collects mails about one topic and mirrors them as Markdown into a folder of another repository, so that project and its AI assistant have the full mail context.
@@ -73,10 +73,12 @@ Turn on *Keep mails out of git* if the mails should stay local and not be commit
 
 ## Local AI
 
-| Model | Download | Notes |
-|---|---|---|
-| Qwen2.5 1.5B (default) | 1.1 GB | ~1 s per mail on Apple Silicon, 6/6 on the sample mails |
-| Qwen2.5 3B | 2.1 GB | ~1.4 s per mail, 5/6 on the sample mails |
+| Model | Download | Correct (16 test mails) | Per mail | Memory while sorting |
+|---|---|---|---|---|
+| **Qwen3.5 4B** (default) | 2.7 GB | 15 | ~2 s | ~3 GB |
+| Qwen3.5 2B (light) | 1.3 GB | 13 | ~1 s | ~1.6 GB |
+
+Also tested: Phi-4-mini (13/16, 2.7 GB RAM), Gemma 4 E2B (13/16, 3.5 GB RAM), Qwen2.5 1.5B (10/16). The model is loaded only while new mail is sorted and released afterwards, so it doesn't hold memory the rest of the time. Measured on Apple Silicon with llama.cpp b11165.
 
 Models are stored in `~/Library/Application Support/mylbox/models` and checked against their published SHA-256 after downloading. A grammar forces the model's output into a fixed JSON shape, so classifications can't come back malformed. Rules and your own choices always win over the AI.
 

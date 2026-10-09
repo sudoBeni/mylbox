@@ -109,8 +109,23 @@ public final class LocalModel: @unchecked Sendable {
             buffer = [CChar](repeating: 0, count: Int(length) + 1)
             length = llama_chat_apply_template(template, &messages, messages.count, true, &buffer, Int32(buffer.count))
         }
-        guard length > 0 else { throw LocalModelError(message: "the model has no usable chat template") }
-        return String(decoding: buffer[0..<Int(length)].map { UInt8(bitPattern: $0) }, as: UTF8.self)
+        if length > 0 {
+            return String(decoding: buffer[0..<Int(length)].map { UInt8(bitPattern: $0) }, as: UTF8.self)
+        }
+        // Formats llama.cpp's built-in template list doesn't know yet (BOS is added when tokenizing).
+        if let fallback = Self.fallbackFormat(template: template, system: system, user: user) { return fallback }
+        throw LocalModelError(message: "the model has no usable chat template")
+    }
+
+    static func fallbackFormat(template: String?, system: String, user: String) -> String? {
+        guard let template else { return nil }
+        if template.contains("<|turn>") { // Gemma 4
+            return "<|turn>system\n\(system)<turn|>\n<|turn>user\n\(user)<turn|>\n<|turn>model\n"
+        }
+        if template.contains("<|im_start|>") { // ChatML (Qwen and others)
+            return "<|im_start|>system\n\(system)<|im_end|>\n<|im_start|>user\n\(user)<|im_end|>\n<|im_start|>assistant\n"
+        }
+        return nil
     }
 
     private func tokenize(_ text: String) -> [llama_token] {

@@ -14,27 +14,38 @@ public struct LocalModelInfo: Identifiable, Hashable, Sendable {
 }
 
 public enum LocalModelCatalog {
+    // Benchmarked on 16 German, Swiss German, French and English test mails (see LocalModelTests).
+    // Files come from Unsloth's GGUF builds and are pinned by SHA-256.
     public static let models: [LocalModelInfo] = [
         LocalModelInfo(
-            id: "qwen2.5-1.5b",
-            name: "Qwen2.5 1.5B (recommended)",
-            detail: "1.1 GB · about 1 second per mail, sorted 6 of 6 test mails correctly",
-            url: URL(string: "https://huggingface.co/Qwen/Qwen2.5-1.5B-Instruct-GGUF/resolve/main/qwen2.5-1.5b-instruct-q4_k_m.gguf")!,
-            sha256: "6a1a2eb6d15622bf3c96857206351ba97e1af16c30d7a74ee38970e434e9407e",
-            size: 1_117_320_736),
+            id: "qwen3.5-4b",
+            name: "Qwen3.5 4B (recommended)",
+            detail: "2.7 GB · sorted 15 of 16 test mails correctly, about 2 seconds per mail",
+            url: URL(string: "https://huggingface.co/unsloth/Qwen3.5-4B-GGUF/resolve/main/Qwen3.5-4B-Q4_K_M.gguf")!,
+            sha256: "00fe7986ff5f6b463e62455821146049db6f9313603938a70800d1fb69ef11a4",
+            size: 2_740_937_888),
         LocalModelInfo(
-            id: "qwen2.5-3b",
-            name: "Qwen2.5 3B",
-            detail: "2.1 GB · larger and slower, sorted 5 of 6 test mails correctly",
-            url: URL(string: "https://huggingface.co/Qwen/Qwen2.5-3B-Instruct-GGUF/resolve/main/qwen2.5-3b-instruct-q4_k_m.gguf")!,
-            sha256: "626b4a6678b86442240e33df819e00132d3ba7dddfe1cdc4fbb18e0a9615c62d",
-            size: 2_104_932_768),
+            id: "qwen3.5-2b",
+            name: "Qwen3.5 2B (light)",
+            detail: "1.3 GB · sorted 13 of 16 test mails correctly, about 1 second per mail",
+            url: URL(string: "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf")!,
+            sha256: "aaf42c8b7c3cab2bf3d69c355048d4a0ee9973d48f16c731c0520ee914699223",
+            size: 1_280_835_840),
     ]
 
     public static var defaultModel: LocalModelInfo { models[0] }
 
     public static func model(_ id: String) -> LocalModelInfo {
         models.first { $0.id == id } ?? defaultModel
+    }
+
+    /// Deletes model files that are no longer offered (e.g. after switching to a newer model generation).
+    public static func removeUnusedFiles() {
+        let known = Set(models.map { $0.fileURL.lastPathComponent })
+        let files = (try? FileManager.default.contentsOfDirectory(atPath: Paths.models.path)) ?? []
+        for file in files where !known.contains(file) {
+            try? FileManager.default.removeItem(at: Paths.models.appendingPathComponent(file))
+        }
     }
 }
 

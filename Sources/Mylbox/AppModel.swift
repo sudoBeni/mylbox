@@ -68,6 +68,7 @@ final class AppModel {
         }
         reload()
         startTimer()
+        LocalModelCatalog.removeUnusedFiles()
         Task { await syncAll() }
         // llama.cpp must release its Metal resources before the process exits, or it aborts on quit.
         NotificationCenter.default.addObserver(forName: NSApplication.willTerminateNotification, object: nil, queue: .main) { _ in
@@ -266,7 +267,11 @@ final class AppModel {
         guard config.aiClassificationEnabled, triageProgress == nil else { return }
         guard let pending = try? store.pendingTriage(limit: 200), !pending.isEmpty else { return }
         triageProgress = "Preparing AI…"
-        defer { triageProgress = nil }
+        defer {
+            triageProgress = nil
+            // Free the model's memory (a few GB) between runs; loading again takes about 2 seconds.
+            localModel = nil
+        }
         guard let model = await loadedModel() else { return }
         for (index, message) in pending.enumerated() {
             triageProgress = "Sorting mail \(index + 1) of \(pending.count)…"
