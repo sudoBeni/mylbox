@@ -3,6 +3,15 @@ import Foundation
 // MARK: - Accounts
 
 public enum Provider: String, Codable, CaseIterable, Identifiable, Sendable {
+    public var defaultSymbol: String {
+        switch self {
+        case .gmail: "envelope"
+        case .icloud: "cloud"
+        case .outlook: "briefcase"
+        default: "at"
+        }
+    }
+
     case gmail, icloud, outlook, imap
 
     public var id: String { rawValue }
@@ -79,6 +88,22 @@ public struct Account: Codable, Identifiable, Hashable, Sendable {
     public var smtp: ServerEndpoint
     public var auth: AuthMethod
     public var oauthClientID: String?
+    /// Other addresses that are also the user and arrive here (a school or an old address forwarded in).
+    public var aliases: [String]?
+    /// The badge that marks mail from this account: an SF Symbol name and a hue (0…1).
+    public var symbol: String?
+    public var hue: Double?
+
+    /// The account address and its aliases, lowercased.
+    public var allAddresses: Set<String> {
+        Set(([email] + (aliases ?? [])).map { $0.lowercased().trimmingCharacters(in: .whitespaces) }.filter { !$0.isEmpty })
+    }
+
+    public var badgeSymbol: String { symbol ?? provider.defaultSymbol }
+    /// A hue of its own when none was chosen, so two accounts never look the same by accident.
+    public var badgeHue: Double {
+        hue ?? Double(id.uuidString.unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) % 360 }) / 360
+    }
 
     public init(provider: Provider, name: String, email: String) {
         self.id = UUID()
@@ -191,6 +216,16 @@ public struct MailMessage: Identifiable, Hashable, Sendable {
     public var rawPath: String
     /// All messages of one conversation share this key (see `Threading`).
     public var threadID: String = ""
+    /// The model's keyword ("Jahresabrechnung") and what it asks of the user, when it said so.
+    public var topic: String? = nil
+    public var ask: String? = nil
+    /// The topic (matter) the conversation was put into; nil while the conversation is a topic of its own.
+    public var matterID: String? = nil
+    /// Bcc recipients, known only for the user's own sent mail.
+    public var bcc: [EmailAddress] = []
+
+    /// The topic this message belongs to: its matter, or its own conversation.
+    public var matterKey: String { matterID ?? threadID }
 
     /// Stable key used for export filenames, independent of folder moves.
     public var stableKey: String {
@@ -212,6 +247,8 @@ public struct Conversation: Identifiable, Hashable, Sendable {
     public var openCount: Int
     public var unreadCount: Int
     public var needsReply: Bool
+    /// What the user is asked to do in it ("Hallenmiete bestätigen"), when the model said so.
+    public var ask: String? = nil
     public var hasAttachments: Bool
     public var isSpam: Bool
     /// Category of the newest message; decides whether the conversation is folded (updates, newsletters).
@@ -228,6 +265,32 @@ public struct Conversation: Identifiable, Hashable, Sendable {
     public var spaceID: UUID?
     public var snoozedUntil: Date?
     public var waitingDismissed: Bool
+    /// When the user put this topic on their To-do (nil: not on it), and their note for it.
+    public var todoSince: Date? = nil
+    public var todoNote: String? = nil
+    /// Open tasks: things to do outside mail, which a reply does not finish.
+    public var tasks: [MailTask] = []
+    public var projectID: UUID? = nil
+    /// The model's keyword for the newest message ("Jahresabrechnung"), nil until it exists.
+    public var lastTopic: String? = nil
+    /// The topic (matter) this conversation was put into, and its name; nil while it is a topic of its own.
+    public var matterID: String? = nil
+    public var matterTitle: String? = nil
+
+    /// The topic this conversation belongs to: its matter, or itself.
+    public var matterKey: String { matterID ?? id }
+
+    /// What the topic is about in a word or two: the model's keyword, or the subject until it exists.
+    public var keyword: String {
+        if let topic = lastTopic, !topic.isEmpty { return topic }
+        return subject.isEmpty ? "(no subject)" : subject
+    }
+
+    /// The model's one-liner that follows the keyword, nil while there is none.
+    public var blurb: String? {
+        guard let summary = lastSummary, !summary.isEmpty, summary != keyword else { return nil }
+        return summary
+    }
 
     /// The text shown as the row's headline: the model's one-liner, or the subject until it exists.
     public var headline: String {
@@ -236,6 +299,198 @@ public struct Conversation: Identifiable, Hashable, Sendable {
     }
 
     public var isFolded: Bool { category == .updates || category == .newsletters }
+}
+
+// MARK: - Tasks
+
+/// Something to do outside mail ("Hoststar-Rechnung bezahlen"): found by the model in a mail, or set by the user
+/// ("my turn"). Unlike a question, a reply does not finish it; only ticking it off does. When a mail the user sent
+/// sounds like it is done, that is a suggestion, never automatic.
+public struct MailTask: Identifiable, Hashable, Sendable {
+    public enum Source: String, Sendable { case model, manual }
+    public var id: Int64
+    public var threadID: String
+    public var text: String
+    public var source: Source
+    /// When the task came up: the mail's date, or when the user set it.
+    public var created: Date
+    /// A sent mail that sounds like the task is done, waiting for the user to confirm.
+    public var doneSuggestedBy: Int64?
+
+    public init(id: Int64, threadID: String, text: String, source: Source, created: Date, doneSuggestedBy: Int64? = nil) {
+        self.id = id
+        self.threadID = threadID
+        self.text = text
+        self.source = source
+        self.created = created
+        self.doneSuggestedBy = doneSuggestedBy
+    }
+
+    /// What the list shows.
+    public var label: String { text.isEmpty ? "You marked this as your turn" : text }
+}
+
+// MARK: - Topics
+
+/// Where the ball is in a topic: with the user (asked to do something), with the others (the user wrote last and
+/// waits), or nowhere.
+public enum Ball: String, Sendable, Hashable, CaseIterable {
+    case mine, theirs, quiet
+}
+
+/// A topic ("Rechtsfall A24015827"): one or more conversations about the same matter, read as one chat. A
+/// conversation that was never put together with others is a topic of its own.
+public struct Matter: Identifiable, Hashable, Sendable {
+    /// The matter's id, or the conversation's id for a topic of its own.
+    public var id: String
+    public var title: String
+    public var spaceID: UUID?
+    /// Its conversations, newest first.
+    public var conversations: [Conversation]
+    public var ball: Ball
+    /// What the user is asked to do, while the ball is with them.
+    public var ask: String?
+    /// Who the user waits for, while the ball is with the others, or who has the user's last mail.
+    public var waitingOn: EmailAddress?
+    /// Open tasks in the topic, oldest first. Any of them keeps the ball with the user.
+    public var tasks: [MailTask] = []
+
+    public var lastDate: Date { conversations.first?.lastDate ?? .distantPast }
+    public var unreadCount: Int { conversations.reduce(0) { $0 + $1.unreadCount } }
+    public var messageCount: Int { conversations.reduce(0) { $0 + $1.messageCount } }
+    public var threadIDs: [String] { conversations.map(\.id) }
+    public var isFolded: Bool { conversations.allSatisfy(\.isFolded) }
+    /// A conversation that was put together with others (has a matter row), not just a single conversation.
+    public var isGrouped: Bool { conversations.first?.matterID != nil }
+
+    /// Everyone in the topic but the user, the most recent first.
+    public func people(isMe: (EmailAddress) -> Bool) -> [EmailAddress] {
+        var seen = Set<String>()
+        return conversations.flatMap { [$0.lastFrom] + $0.participants }
+            .filter { !isMe($0) && !$0.address.isEmpty && seen.insert($0.address.lowercased()).inserted }
+    }
+
+    /// Groups conversations into topics, newest first. Spam is left out. `now` decides whether Later is over.
+    public static func group(_ conversations: [Conversation], now: Date = Date(), isMe: (EmailAddress) -> Bool) -> [Matter] {
+        var byKey: [String: [Conversation]] = [:]
+        for conversation in conversations where !conversation.isSpam {
+            byKey[conversation.matterKey, default: []].append(conversation)
+        }
+        return byKey.map { key, list in
+            let sorted = list.sorted { $0.lastDate > $1.lastDate }
+            return make(key, sorted, now: now, isMe: isMe)
+        }
+        .sorted { $0.lastDate > $1.lastDate }
+    }
+
+    static func make(_ key: String, _ conversations: [Conversation], now: Date, isMe: (EmailAddress) -> Bool) -> Matter {
+        let newest = conversations[0]
+        let awake = conversations.filter { ($0.snoozedUntil ?? .distantPast) <= now }
+        let asked = awake.first { $0.needsReply && $0.openCount > 0 }
+        // A reply finishes a question, not a task: open tasks keep the ball with the user.
+        let tasks = awake.flatMap(\.tasks).sorted { $0.created < $1.created }
+        var ball = Ball.quiet
+        var ask: String?
+        var waitingOn: EmailAddress?
+        if newest.lastFolderRole == .sent {
+            waitingOn = newest.lastTo.first { !isMe($0) } ?? newest.participants.first { !isMe($0) }
+        }
+        if asked != nil || !tasks.isEmpty {
+            ball = .mine
+            ask = asked.map { $0.ask ?? $0.lastSummary } ?? tasks.first?.label
+        } else if newest.lastFolderRole == .sent, !newest.waitingDismissed, (newest.snoozedUntil ?? .distantPast) <= now {
+            ball = .theirs
+        } else {
+            waitingOn = nil
+        }
+        let subject = newest.subject.isEmpty ? "(no subject)" : newest.subject
+        let title = newest.matterTitle.flatMap { $0.isEmpty ? nil : $0 } ?? subject
+        return Matter(id: key, title: title, spaceID: newest.spaceID, conversations: conversations,
+                      ball: ball, ask: ask, waitingOn: waitingOn, tasks: tasks)
+    }
+}
+
+/// Which mails the Inbox lists: every received mail, newest first, narrowed by these.
+public struct FeedQuery: Hashable, Sendable {
+    public var search = ""
+    public var space: UUID?
+    public var unreadOnly = false
+    public var attachmentsOnly = false
+    /// A sender's address, lowercased.
+    public var from: String?
+    /// Only mail older than this (jumping to a month).
+    public var before: Date?
+    public var limit = 300
+
+    public init() {}
+}
+
+/// Everything with the same people, like a chat in a messenger: Reto alone is one chat, Reto and Lea together
+/// another. Each conversation (topic) belongs to the chat of the people in it.
+public struct Chat: Identifiable, Hashable, Sendable {
+    public var id: String
+    /// The people other than the user, the most active first.
+    public var people: [EmailAddress]
+    /// The topics of this chat, newest first.
+    public var topics: [Conversation]
+
+    public var lastDate: Date { topics.first?.lastDate ?? .distantPast }
+    public var unreadCount: Int { topics.reduce(0) { $0 + $1.unreadCount } }
+    /// A topic in this chat is open and waits for an answer.
+    public var needsReply: Bool { topics.contains { $0.needsReply && $0.openCount > 0 } }
+    /// Only updates and newsletters, no mail from people.
+    public var isFolded: Bool { topics.allSatisfy(\.isFolded) }
+
+    /// The id of the chat a conversation belongs to: "chat:" and the other people's addresses, sorted.
+    public static func key(for conversation: Conversation, isMe: (EmailAddress) -> Bool) -> String {
+        let others = conversation.participants.filter { !isMe($0) && !$0.address.isEmpty }
+        return "chat:" + Set(others.map { $0.address.lowercased() }).sorted().joined(separator: ",")
+    }
+
+    /// Groups conversations into chats, newest chat first. `isMe` tells the user's own addresses apart.
+    public static func group(_ conversations: [Conversation], isMe: (EmailAddress) -> Bool) -> [Chat] {
+        var chats: [String: Chat] = [:]
+        for conversation in conversations where !conversation.isSpam {
+            let others = conversation.participants.filter { !isMe($0) && !$0.address.isEmpty }
+            let id = key(for: conversation, isMe: isMe)
+            if chats[id] == nil {
+                // The sender comes first: "Reto, Lea" when Reto wrote last.
+                let first = others.firstIndex { $0.address.lowercased() == conversation.lastFrom.address.lowercased() } ?? 0
+                var people = others
+                if !people.isEmpty { people.insert(people.remove(at: first), at: 0) }
+                chats[id] = Chat(id: id, people: people, topics: [])
+            }
+            chats[id]?.topics.append(conversation)
+        }
+        return chats.values
+            .map { chat in var chat = chat; chat.topics.sort { $0.lastDate > $1.lastDate }; return chat }
+            .sorted { $0.lastDate > $1.lastDate }
+    }
+}
+
+/// One sender of one-way mail (GitHub, Coolify, SBB): notifications to read, not conversations to answer.
+public struct InfoSource: Identifiable, Hashable, Sendable {
+    /// The sender's address, lowercased.
+    public var id: String
+    public var sender: EmailAddress
+    /// Its conversations, newest first.
+    public var items: [Conversation]
+
+    public var lastDate: Date { items.first?.lastDate ?? .distantPast }
+    public var unreadCount: Int { items.reduce(0) { $0 + $1.unreadCount } }
+
+    /// Groups folded conversations (updates, newsletters) by sender, newest source first.
+    public static func group(_ conversations: [Conversation], isMe: (EmailAddress) -> Bool) -> [InfoSource] {
+        var sources: [String: InfoSource] = [:]
+        for conversation in conversations where !conversation.isSpam {
+            let sender = conversation.participants.first { !isMe($0) && !$0.address.isEmpty } ?? conversation.lastFrom
+            let id = sender.address.lowercased()
+            sources[id, default: InfoSource(id: id, sender: sender, items: [])].items.append(conversation)
+        }
+        return sources.values
+            .map { source in var source = source; source.items.sort { $0.lastDate > $1.lastDate }; return source }
+            .sorted { $0.lastDate > $1.lastDate }
+    }
 }
 
 /// Which conversations a list shows.
@@ -249,10 +504,14 @@ public struct ConversationQuery: Hashable, Sendable {
         case waiting(olderThan: Date)
         /// All conversations, used for search.
         case all
+        /// Topics on the user's To-do.
+        case todo
     }
 
     public var scope: Scope
     public var space: UUID?
+    /// Narrows to one project inside the court.
+    public var project: UUID?
     public var search = ""
     public var peopleOnly = false
     public var attachmentsOnly = false
@@ -260,9 +519,10 @@ public struct ConversationQuery: Hashable, Sendable {
     public var offset = 0
     public var now = Date()
 
-    public init(scope: Scope, space: UUID? = nil, search: String = "") {
+    public init(scope: Scope, space: UUID? = nil, project: UUID? = nil, search: String = "") {
         self.scope = scope
         self.space = space
+        self.project = project
         self.search = search
     }
 }
@@ -278,6 +538,8 @@ public struct Space: Codable, Identifiable, Hashable, Sendable {
     public var exportFolder: String?
     public var keepOutOfGit: Bool
     public var includeAttachments: Bool
+    /// The projects inside this court (e.g. Cheersfeed in Slackers); each has a rule with the project's id.
+    public var projects: [Project] = []
 
     public init(name: String, symbol: String = "folder") {
         self.id = UUID()
@@ -285,6 +547,29 @@ public struct Space: Codable, Identifiable, Hashable, Sendable {
         self.symbol = symbol
         self.keepOutOfGit = false
         self.includeAttachments = true
+    }
+
+    // Courts saved before projects existed keep loading.
+    public init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        symbol = try container.decode(String.self, forKey: .symbol)
+        exportFolder = try container.decodeIfPresent(String.self, forKey: .exportFolder)
+        keepOutOfGit = try container.decode(Bool.self, forKey: .keepOutOfGit)
+        includeAttachments = try container.decode(Bool.self, forKey: .includeAttachments)
+        projects = try container.decodeIfPresent([Project].self, forKey: .projects) ?? []
+    }
+}
+
+/// A project inside a court. Its mail comes in by its rule (senders, domains, subject words) or by hand.
+public struct Project: Codable, Identifiable, Hashable, Sendable {
+    public var id: UUID
+    public var name: String
+
+    public init(name: String) {
+        self.id = UUID()
+        self.name = name
     }
 }
 
@@ -336,6 +621,7 @@ public struct RuleCondition: Codable, Hashable, Identifiable, Sendable {
 
 public enum RuleAction: Codable, Hashable, Sendable {
     case addToSpace(UUID)
+    case setProject(UUID)
     case setCategory(MailCategory)
     case archive
     case markRead
@@ -375,6 +661,15 @@ public struct AppConfig: Codable, Sendable {
     public var laterHour = 9
     /// Days without an answer before a sent mail shows up under "Waiting for".
     public var waitingDays = 3
+    /// The court for mail that may be deleted some day. Nothing in it is deleted yet; it only leaves the way.
+    public var graveyardID: UUID?
+    /// The court for one-way mail (notifications, receipts, newsletters): one topic per sender.
+    public var infosID: UUID?
+    /// Setting up (sub-court suggestions, the sorting assistant) with a cloud model through OpenRouter instead of
+    /// the local one. Off unless the user turns it on; the key is in the Keychain.
+    public var cloudForSetup = false
+    /// The OpenRouter model id, e.g. "anthropic/claude-sonnet-…".
+    public var cloudModelID = ""
 
     public init() {}
 
@@ -393,5 +688,9 @@ public struct AppConfig: Codable, Sendable {
             ?? defaults.syncIntervalMinutes
         laterHour = try container.decodeIfPresent(Int.self, forKey: .laterHour) ?? defaults.laterHour
         waitingDays = try container.decodeIfPresent(Int.self, forKey: .waitingDays) ?? defaults.waitingDays
+        graveyardID = try container.decodeIfPresent(UUID.self, forKey: .graveyardID)
+        infosID = try container.decodeIfPresent(UUID.self, forKey: .infosID)
+        cloudForSetup = try container.decodeIfPresent(Bool.self, forKey: .cloudForSetup) ?? defaults.cloudForSetup
+        cloudModelID = try container.decodeIfPresent(String.self, forKey: .cloudModelID) ?? defaults.cloudModelID
     }
 }

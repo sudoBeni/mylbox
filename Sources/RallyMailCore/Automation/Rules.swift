@@ -45,12 +45,13 @@ public enum RuleEngine {
 
     public struct Outcome: Sendable {
         public var spaces: Set<UUID> = []
+        public var projects: Set<UUID> = []
         public var category: MailCategory?
         public var archive = false
         public var markRead = false
         public var flag = false
 
-        public var isEmpty: Bool { spaces.isEmpty && category == nil && !archive && !markRead && !flag }
+        public var isEmpty: Bool { spaces.isEmpty && projects.isEmpty && category == nil && !archive && !markRead && !flag }
     }
 
     public static func evaluate(_ rules: [Rule], _ message: MailMessage) -> Outcome {
@@ -59,6 +60,7 @@ public enum RuleEngine {
             for action in rule.actions {
                 switch action {
                 case .addToSpace(let space): outcome.spaces.insert(space)
+                case .setProject(let project): outcome.projects.insert(project)
                 case .setCategory(let category): outcome.category = category
                 case .archive: outcome.archive = message.folderRole == .inbox
                 case .markRead: outcome.markRead = true

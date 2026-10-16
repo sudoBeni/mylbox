@@ -130,6 +130,8 @@ public struct IMAPFetchedMessage: Sendable {
     public var flags: Set<String>
     public var internalDate: Date?
     public var raw: Data?
+    /// Gmail's conversation id (X-GM-THRID), when asked for.
+    public var gmailThread: String? = nil
 }
 
 public enum IMAPAuth: Sendable {
@@ -317,6 +319,7 @@ public final class IMAPClient: @unchecked Sendable {
             case "UID": message.uid = value.text.flatMap { UInt32($0) } ?? 0
             case "FLAGS": message.flags = Set(value.list.compactMap(\.text))
             case "INTERNALDATE": message.internalDate = value.text.flatMap(parseInternalDate)
+            case "X-GM-THRID": message.gmailThread = value.text
             default:
                 if key.hasPrefix("BODY[") || key == "RFC822" { message.raw = value.data }
             }

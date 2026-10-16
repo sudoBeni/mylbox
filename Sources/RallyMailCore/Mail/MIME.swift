@@ -17,6 +17,8 @@ public struct ParsedMail: Sendable {
     public var from: EmailAddress?
     public var to: [EmailAddress] = []
     public var cc: [EmailAddress] = []
+    /// Only in the sender's own copy (Gmail keeps it in Sent).
+    public var bcc: [EmailAddress] = []
     public var replyTo: [EmailAddress] = []
     public var date = Date()
     public var text: String?
@@ -57,12 +59,25 @@ public enum MIME {
         mail.from = parseAddressList(rawHeader(part, "From")).first
         mail.to = parseAddressList(rawHeader(part, "To"))
         mail.cc = parseAddressList(rawHeader(part, "Cc"))
+        mail.bcc = parseAddressList(rawHeader(part, "Bcc"))
         mail.replyTo = parseAddressList(rawHeader(part, "Reply-To"))
         mail.date = mail.header("Date").flatMap(parseDate) ?? fallbackDate ?? Date()
         let precedence = mail.header("Precedence")?.lowercased() ?? ""
         mail.isBulk = mail.header("List-Unsubscribe") != nil || mail.header("List-Id") != nil
             || precedence == "bulk" || precedence == "list"
         collect(part, into: &mail)
+        // Pictures shown only inside the quoted mail ("cid:…" in the quote) belong to the quote, even when the
+        // sender's program labelled them as attachments: Gmail does that for a logo in the mail you reply to.
+        // A picture in the sender's own text stays an attachment.
+        if let html = mail.html?.lowercased() {
+            let own = QuoteStripper.removeQuotedHTML(html)
+            for index in mail.attachments.indices {
+                if let id = mail.attachments[index].contentID?.lowercased(), !id.isEmpty,
+                   html.contains("cid:" + id), !own.contains("cid:" + id) {
+                    mail.attachments[index].isInline = true
+                }
+            }
+        }
         return mail
     }
 
@@ -134,7 +149,11 @@ public enum MIME {
         let data = decodeBody(part)
 
         if !isAttachment, type == "text/plain", mail.text == nil {
-            mail.text = decodeText(data, charset: params["charset"])
+            var text = decodeText(data, charset: params["charset"])
+            if params["format"]?.lowercased() == "flowed" {
+                text = unflow(text, deleteSpace: params["delsp"]?.lowercased() == "yes")
+            }
+            mail.text = text
         } else if !isAttachment, type == "text/html", mail.html == nil {
             mail.html = decodeText(data, charset: params["charset"])
         } else if isAttachment || filename != nil || !type.hasPrefix("text/") {
@@ -144,6 +163,38 @@ public enum MIME {
                 filename: filename.map(decodeEncodedWords) ?? defaultFilename(type: type),
                 mimeType: type, contentID: contentID, isInline: isInline, data: data))
         }
+    }
+
+    /// Joins the soft line breaks of a format=flowed text part (RFC 3676): a line that ends with a space flows
+    /// into the next line of the same quote depth. "-- " stays a signature separator, and a space the sender's
+    /// program stuffed in front of a line is removed.
+    static func unflow(_ text: String, deleteSpace: Bool) -> String {
+        var result: [String] = []
+        var buffer: String?
+        var bufferDepth = 0
+        func prefix(_ depth: Int) -> String { depth == 0 ? "" : String(repeating: ">", count: depth) + " " }
+        for raw in text.replacingOccurrences(of: "\r\n", with: "\n").split(separator: "\n", omittingEmptySubsequences: false) {
+            var line = Substring(raw)
+            var depth = 0
+            while line.hasPrefix(">") { depth += 1; line = line.dropFirst() }
+            if line.hasPrefix(" ") { line = line.dropFirst() }
+            let soft = line.hasSuffix(" ") && line != "-- "
+            var content = String(line)
+            if soft, deleteSpace { content.removeLast() }
+            if let pending = buffer, bufferDepth == depth {
+                buffer = pending + content
+            } else {
+                if let pending = buffer { result.append(prefix(bufferDepth) + pending) }
+                buffer = content
+                bufferDepth = depth
+            }
+            if !soft {
+                result.append(prefix(depth) + (buffer ?? ""))
+                buffer = nil
+            }
+        }
+        if let pending = buffer { result.append(prefix(bufferDepth) + pending) }
+        return result.joined(separator: "\n")
     }
 
     private static func defaultFilename(type: String) -> String {
@@ -419,60 +470,5 @@ public enum MIME {
             if let date = formatter.date(from: cleaned) { return date }
         }
         return nil
-    }
-}
-
-public enum HTMLText {
-    /// A cheap HTML → text conversion, good enough for snippets, search and exports.
-    public static func plainText(_ html: String) -> String {
-        var text = html
-        for tag in ["style", "script", "head", "title"] {
-            text = text.replacingOccurrences(of: "<\(tag)[^>]*>[\\s\\S]*?</\(tag)>", with: "",
-                                             options: [.regularExpression, .caseInsensitive])
-        }
-        text = text.replacingOccurrences(of: "<!--[\\s\\S]*?-->", with: "", options: .regularExpression)
-        text = text.replacingOccurrences(of: "<(br|/p|/div|/tr|/h[1-6]|/li|/table)[^>]*>", with: "\n",
-                                         options: [.regularExpression, .caseInsensitive])
-        text = text.replacingOccurrences(of: "<li[^>]*>", with: "• ", options: [.regularExpression, .caseInsensitive])
-        text = text.replacingOccurrences(of: "<[^>]+>", with: "", options: .regularExpression)
-        text = decodeEntities(text)
-        text = text.replacingOccurrences(of: "[ \\t\\u{00A0}]+", with: " ", options: .regularExpression)
-        text = text.replacingOccurrences(of: " *\\n *", with: "\n", options: .regularExpression)
-        text = text.replacingOccurrences(of: "\\n{3,}", with: "\n\n", options: .regularExpression)
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-
-    static func decodeEntities(_ text: String) -> String {
-        guard text.contains("&") else { return text }
-        let named = ["nbsp": " ", "amp": "&", "lt": "<", "gt": ">", "quot": "\"", "apos": "'", "#39": "'",
-                     "auml": "ä", "ouml": "ö", "uuml": "ü", "Auml": "Ä", "Ouml": "Ö", "Uuml": "Ü", "szlig": "ß",
-                     "eacute": "é", "egrave": "è", "agrave": "à", "ccedil": "ç", "euro": "€", "hellip": "…",
-                     "ndash": "–", "mdash": "—", "rsquo": "’", "lsquo": "‘", "rdquo": "”", "ldquo": "“", "zwnj": ""]
-        var output = ""
-        var rest = Substring(text)
-        while let amp = rest.firstIndex(of: "&") {
-            output += rest[..<amp]
-            let after = rest[rest.index(after: amp)...]
-            if let semi = after.prefix(10).firstIndex(of: ";") {
-                let entity = String(after[..<semi])
-                var replacement: String?
-                if entity.hasPrefix("#x") || entity.hasPrefix("#X") {
-                    replacement = UInt32(entity.dropFirst(2), radix: 16).flatMap(Unicode.Scalar.init).map { String(Character($0)) }
-                } else if entity.hasPrefix("#") {
-                    replacement = UInt32(entity.dropFirst()).flatMap(Unicode.Scalar.init).map { String(Character($0)) }
-                } else {
-                    replacement = named[entity]
-                }
-                if let replacement {
-                    output += replacement
-                    rest = after[after.index(after: semi)...]
-                    continue
-                }
-            }
-            output += "&"
-            rest = after
-        }
-        output += rest
-        return output
     }
 }
