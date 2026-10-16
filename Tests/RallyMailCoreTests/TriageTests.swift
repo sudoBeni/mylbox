@@ -10,12 +10,21 @@ import Testing
         #expect(try TriageService.parse(#"{"category":"spam","needs_reply":true,"summary":"x"}"#, isBulk: false)
             == Triage(category: .spam, needsReply: false, summary: "x"))
         #expect(try TriageService.parse(#"{"category":"important","needs_reply":true,"summary":"x"}"#, isBulk: true).needsReply == false)
+        #expect(try TriageService.parse(#"{"summary":"x","topic":" Hallenmiete ","category":"important","needs_reply":false}"#,
+                                        isBulk: false).topic == "Hallenmiete")
+        // Reply comes from a concrete ask, not from the mail being personal.
+        let asked = try TriageService.parse(#"{"summary":"x","topic":"t","category":"important","ask":"Hallenmiete bestätigen."}"#, isBulk: false)
+        #expect(asked.needsReply && asked.ask == "Hallenmiete bestätigen")
+        #expect(try TriageService.parse(#"{"summary":"x","topic":"t","category":"important","ask":""}"#, isBulk: false).needsReply == false)
+        #expect(try TriageService.parse(#"{"summary":"x","topic":"t","category":"important","ask":"Keine"}"#, isBulk: false).needsReply == false)
+        #expect(try TriageService.parse(#"{"summary":"x","topic":"t","category":"updates","ask":"Bezahlen"}"#, isBulk: false).needsReply == false)
     }
 
     @Test func oldConfigStillLoads() throws {
         let json = #"{"accounts":[],"spaces":[{"id":"6F9619FF-8B86-D011-B42D-00C04FC964FF","name":"VB","symbol":"folder","keepOutOfGit":false,"includeAttachments":true}],"rules":[],"aiClassificationEnabled":false,"initialSyncLimit":300,"syncIntervalMinutes":3}"#
         let config = try JSONDecoder().decode(AppConfig.self, from: Data(json.utf8))
         #expect(config.spaces.count == 1)
+        #expect(config.spaces[0].projects.isEmpty)
         #expect(config.aiClassificationEnabled == false)
         #expect(config.aiModelID == LocalModelCatalog.defaultModel.id)
     }
@@ -71,6 +80,36 @@ struct LocalModelTests {
               "I am a lawyer representing a late client with USD 12.5 million unclaimed. You share his surname. Reply with your bank details to receive 40%."), .spam),
     ]
 
+    /// Personal mail: true when the recipient is asked to do something, false when it only informs or thanks.
+    static let replyCases: [(MailMessage, Bool)] = [
+        (cases[0].0, true), (cases[1].0, true), (cases[2].0, true), (cases[3].0, true), (cases[4].0, true),
+        (mail("Reto Kaufmann <reto@vbc-example.ch>", "Re: Training",
+              "Merci für das Training gestern, war mega! Bis nächste Woche, Reto"), false),
+        (mail("Sandra Huber <praesidentin@vbc-example.ch>", "Infos Turnier Samstag",
+              "Hallo zusammen, Treffpunkt am Samstag ist um 8:00 bei der Halle Allmend. Spielplan im Anhang. Gruss Sandra"), false),
+        (mail("Thomas Amhof <thomas.amhof@bluewin.ch>", "Fotos vom Wochenende",
+              "Hoi Beni, hier die Fotos vom Wochenende. Liebe Grüsse, Thomas"), false),
+        (mail("Victor Geerts <victor@example.be>", "Re: Offerte",
+              "Thanks Benjamin, I received the documents. I will get back to you next week. Best, Victor"), false),
+        (mail("Leonie Odermatt <leonie.odermatt@gmx.ch>", "Mittrainieren",
+              "Hallo Benjamin, darf ich am Dienstag bei euch mittrainieren? Ich spiele sonst in Luzern. Liebe Grüsse, Leonie"), true),
+    ]
+
+    @Test func asksOnlyWhenSomethingIsAsked() async throws {
+        var correct = 0
+        do {
+            let model = try LocalModel(path: ProcessInfo.processInfo.environment["RALLYMAIL_MODEL"] ?? "")
+            for (message, expected) in Self.replyCases {
+                let triage = try await TriageService.triage(message, model: model)
+                let ok = triage.needsReply == expected
+                if ok { correct += 1 }
+                print("\(ok ? "OK  " : "MISS") \(message.subject) → \(triage.category) reply=\(triage.needsReply) ask=“\(triage.ask)”")
+            }
+        }
+        print("Reply score: \(correct)/\(Self.replyCases.count)")
+        #expect(correct >= Self.replyCases.count - 1)
+    }
+
     /// One test that loads and frees the model itself, so llama.cpp is shut down before the process exits.
     @Test func classifiesSampleMails() async throws {
         var correct = 0
@@ -90,6 +129,35 @@ struct LocalModelTests {
         getrusage(RUSAGE_SELF, &usage)
         print("Score: \(correct)/\(Self.cases.count), peak memory \(usage.ru_maxrss / 1_048_576) MB")
         #expect(Double(correct) >= Double(Self.cases.count) * 0.8)
+    }
+}
+
+/// Names and revises proposed courts with the real model, step by step. RALLYMAIL_MODEL=… swift test --filter CourtNamingModelTests
+@Suite(.enabled(if: ProcessInfo.processInfo.environment["RALLYMAIL_MODEL"] != nil))
+struct CourtNamingModelTests {
+    static func court(_ people: [String], _ subjects: [String], domains: [String] = []) -> ProposedCourt {
+        ProposedCourt(name: SortingEngine.fallbackName(people: people.map { EmailAddress(name: $0, address: $0.lowercased().replacingOccurrences(of: " ", with: ".") + "@gmx.ch") }, domains: domains),
+                      people: people.map { EmailAddress(name: $0, address: $0.lowercased().replacingOccurrences(of: " ", with: ".") + "@gmx.ch") },
+                      domains: domains, threadIDs: subjects, messageCount: subjects.count, subjects: subjects, keywords: [], topics: [], lastDate: Date())
+    }
+
+    @Test func namesAndRevisesInSmallSteps() async throws {
+        let model = try LocalModel(path: ProcessInfo.processInfo.environment["RALLYMAIL_MODEL"] ?? "")
+        var courts = [
+            Self.court(["Reto Kaufmann", "Lea Brunner"], ["Jahresabrechnung 25/26", "Kassendienst Samstag", "Hallenmiete Oktober", "Schiri-Spesen Herbstturnier"]),
+            Self.court(["Nora Huber"], ["Rechtsfall A24015827", "Vollmacht A24015827", "Forderung bestätigen"], domains: ["kanzlei-huber.ch"]),
+            Self.court(["Jonas Meier"], ["Trainingszeiten Herbst", "Turnierplan Luzern", "Hallenbelegung"]),
+        ]
+        for index in courts.indices {
+            let named = try await CourtNaming.name(courts[index], model: model)
+            print("NAME \(index): \(named.name) — \(named.about)")
+            courts[index].name = named.name
+        }
+        let wish = "Leg \(courts[2].name) mit \(courts[0].name) zusammen und nenn \(courts[1].name) einfach Anwalt."
+        let result = try await CourtNaming.revise(courts, wish: wish, model: model) { print("STEP \($0)") }
+        print("WISH: \(wish)\nRESULT: \(result.map(\.name)) threads \(result.map(\.threadIDs.count))")
+        #expect(result.count == 2)
+        #expect(result.contains { $0.name.lowercased().contains("anwalt") })
     }
 }
 
@@ -113,5 +181,53 @@ struct LocalModelTests {
         try FileManager.default.removeItem(at: info.fileURL)
         await #expect(throws: LocalModelError.self) { try await ModelDownloader(info) { _ in }.download() }
         #expect(!info.isDownloaded)
+    }
+}
+
+/// Tasks with the real model: found in mail that asks for something to be done, and in the user's own replies.
+///   RALLYMAIL_MODEL=/path/to/model.gguf swift test --filter TaskModelTests
+@Suite(.enabled(if: ProcessInfo.processInfo.environment["RALLYMAIL_MODEL"] != nil))
+struct TaskModelTests {
+    typealias Cases = LocalModelTests
+
+    @Test func findsTasksAndWhatIsDone() async throws {
+        let model = try LocalModel(path: ProcessInfo.processInfo.environment["RALLYMAIL_MODEL"] ?? "")
+        let incoming: [(MailMessage, Bool)] = [
+            (Cases.mail("Hoststar <order@hoststar.ch>", "Rechnung: Erneuerung Domainregistrierung - hapje.ch",
+                        "Sehr geehrter Kunde, anbei die Rechnung über CHF 15.30 für die Erneuerung Ihrer Domain hapje.ch. Zahlbar innert 30 Tagen."), true),
+            (Cases.mail("Lea Brunner <lea@vbc-example.ch>", "Anmeldung Turnier",
+                        "Hoi Beni, kannst du mir das Anmeldeformular bis Freitag unterschrieben zurückschicken? Merci, Lea"), true),
+            (Cases.mail("Anna Keller <anna.keller@gmx.ch>", "Znacht am Samstag?", "Hoi Beni, hast du am Samstag Zeit für ein Znacht? Anna"), false),
+            (Cases.mail("SBB <noreply@sbb.ch>", "Ihr Ticket", "Vielen Dank für Ihren Kauf. Ihr Ticket Luzern–Zürich ist angehängt."), false),
+            (Cases.mail("Twint <noreply@twint.ch>", "Zahlung erhalten", "Lea Brunner hat dir CHF 25.00 gesendet."), false),
+        ]
+        var correct = 0
+        for (message, expected) in incoming {
+            let triage = try await TriageService.triage(message, model: model)
+            let ok = !triage.task.isEmpty == expected
+            if ok { correct += 1 }
+            print("\(ok ? "OK  " : "MISS") \(message.subject) → task “\(triage.task)”")
+        }
+
+        let papa = Cases.mail("Thomas Amhof <thomas.amhof@bluewin.ch>", "Hoststar - Rechnung: Erneuerung Domainregistrierung - hapje.ch",
+                              "Hoi Beni, isch die Rechnig für dich? Gruess Papi")
+        func sent(_ text: String) -> MailMessage {
+            var message = Cases.mail("Benjamin Amhof <ben@example.ch>", "Re: Hoststar - Rechnung", text)
+            message.to = [EmailAddress(name: "Thomas Amhof", address: "thomas.amhof@bluewin.ch")]
+            return message
+        }
+        let reviews: [(MailMessage, [String], Bool, [Int])] = [
+            (sent("hoi Papi\nJa, das ist für mich:)\nDanke!\nLiebe Grüsse Beni"), [], true, []),
+            (sent("Hoi Papi, hab die Rechnung heute bezahlt. Gruess Beni"), ["Hoststar-Rechnung bezahlen"], false, [0]),
+            (sent("Danke für die Info, bis Samstag!"), ["Anmeldeformular unterschreiben und schicken"], false, []),
+        ]
+        for (message, open, expectTask, expectDone) in reviews {
+            let review = try await TriageService.review(message, openTasks: open, earlier: papa, model: model)
+            let ok = !review.task.isEmpty == expectTask && review.done == expectDone
+            if ok { correct += 1 }
+            print("\(ok ? "OK  " : "MISS") “\(message.bodyText.prefix(40))” → task “\(review.task)” done \(review.done)")
+        }
+        print("tasks: \(correct) of \(incoming.count + reviews.count)")
+        #expect(correct >= incoming.count + reviews.count - 2)
     }
 }

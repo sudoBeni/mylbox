@@ -65,7 +65,7 @@ import Testing
 
     @Test func htmlToText() {
         let text = HTMLText.plainText("<html><style>p{}</style><p>Hallo&nbsp;Welt</p><p>Zeile&#33; &auml;</p></html>")
-        #expect(text == "Hallo Welt\nZeile! ä")
+        #expect(text == "Hallo Welt\n\nZeile! ä")
     }
 
     @Test func builtMessageRoundTrips() {
@@ -151,6 +151,18 @@ func sampleMessage(subject: String = "Mitgliederbeitrag", from: String = "kasse@
         #expect(RuleEngine.matches(rule, sampleMessage()))
         rule.enabled = false
         #expect(!RuleEngine.matches(rule, sampleMessage()))
+    }
+
+    @Test func projectRuleSetsCourtAndProject() {
+        let court = UUID()
+        let project = UUID()
+        var rule = Rule(name: "Project Cheersfeed", conditions: [RuleCondition(field: .subject, op: .contains, value: "cheersfeed")],
+                        actions: [.addToSpace(court), .setProject(project)])
+        rule.matchAll = false
+        let outcome = RuleEngine.evaluate([rule], sampleMessage(subject: "Cheersfeed Release 1.2", from: "noreply@apple.com"))
+        #expect(outcome.spaces == [court])
+        #expect(outcome.projects == [project])
+        #expect(RuleEngine.evaluate([rule], sampleMessage()).isEmpty)
     }
 
     @Test func heuristics() {
