@@ -10,12 +10,18 @@ struct ComposerView: View {
     let participants: [EmailAddress]
     var focusToken = 0
     var startWithPeople = false
+    /// In a chat: the topic the reply continues, with a way to start a new one.
+    var topic: ComposerTopic?
     var onSent: (() -> Void)?
     @State private var isSending = false
     @State private var error: String?
     @State private var importing = false
     @State private var adding = false
     @FocusState private var bodyFocused: Bool
+    /// Tasks to tick off with this mail.
+    @State private var finishing: Set<Int64> = []
+
+    private var openTasks: [MailTask] { draft.threadID.map(model.openTasks) ?? [] }
 
     private var missing: [EmailAddress] {
         participants.filter { person in !draft.recipients.contains { $0.id == person.address.lowercased() } }
@@ -23,7 +29,10 @@ struct ComposerView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
-            AudienceEditor(draft: $draft, missing: missing, adding: $adding)
+            AudienceEditor(draft: $draft, missing: missing, adding: $adding, topic: topic, expanded: startWithPeople)
+            if !openTasks.isEmpty {
+                ComposerTaskToggles(tasks: openTasks, finishing: $finishing)
+            }
             HStack(alignment: .bottom, spacing: 8) {
                 TextEditor(text: $draft.body)
                     .font(.system(size: 13))
@@ -99,16 +108,20 @@ struct ComposerView: View {
     private var sendTitle: String {
         guard let first = draft.recipients.first(where: { $0.role != .bcc }) ?? draft.recipients.first else { return "Send" }
         let more = draft.recipients.count - 1
-        return "Send to \(model.shortName(first.address))" + (more > 0 ? " +\(more)" : "")
+        // A reply sends the ball over the net: say to whom.
+        return (draft.threadID == nil ? "Send to " : "Send · ball to ") + model.shortName(first.address) + (more > 0 ? " +\(more)" : "")
     }
 
     private func send() {
         isSending = true
         error = nil
         let draft = draft
+        let finished = openTasks.filter { finishing.contains($0.id) }
         Task {
             do {
                 try await model.send(draft)
+                for task in finished { model.completeTask(task) }
+                finishing = []
                 self.draft.body = ""
                 self.draft.attachments = []
                 onSent?()
@@ -120,20 +133,59 @@ struct ComposerView: View {
     }
 }
 
-/// "To Reto · copy to Lea" plus one chip per person; click the role to change it, × to remove, + to add.
+struct ComposerTopic {
+    var title: String
+    var show: () -> Void
+    var new: () -> Void
+}
+
+/// "To Reto · copy to Lea" in words; click it for one chip per person (role, ×, +).
 struct AudienceEditor: View {
     @Environment(AppModel.self) private var model
     @Binding var draft: MailDraft
     let missing: [EmailAddress]
     @Binding var adding: Bool
+    var topic: ComposerTopic?
+    @State var expanded = false
     @State private var query = ""
     @FocusState private var queryFocused: Bool
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
-            Text(audienceLine)
-                .font(.system(size: 12))
-                .foregroundStyle(.secondary)
+            HStack(spacing: 6) {
+                if let topic {
+                    Button { topic.show() } label: {
+                        HStack(spacing: 3) {
+                            Image(systemName: "number").font(.system(size: 9, weight: .bold)).foregroundStyle(Color.accentColor)
+                            Text(topic.title.isEmpty ? "(no subject)" : topic.title).fontWeight(.medium).lineLimit(1)
+                        }
+                    }
+                    .buttonStyle(.plain)
+                    .help("Your reply continues this topic · open it on its own")
+                    Text("·").foregroundStyle(.tertiary)
+                }
+                Button {
+                    withAnimation(.snappy(duration: 0.15)) { expanded.toggle() }
+                } label: {
+                    HStack(spacing: 3) {
+                        Text(audienceLine).lineLimit(1)
+                        Image(systemName: "chevron.down").font(.system(size: 8, weight: .semibold))
+                            .rotationEffect(.degrees(expanded ? 180 : 0))
+                    }
+                }
+                .buttonStyle(.plain)
+                .help("Change who gets this")
+                Spacer(minLength: 4)
+                if let topic {
+                    Button("New Topic") { topic.new() }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(Color.accentColor)
+                        .help("Write about something else with the same people")
+                }
+            }
+            .font(.system(size: 12))
+            .foregroundStyle(.secondary)
+            if expanded || adding || draft.recipients.isEmpty {
             FlowLayout(spacing: 6) {
                 ForEach(draft.recipients) { recipient in
                     RecipientChip(recipient: recipient,
@@ -165,6 +217,7 @@ struct AudienceEditor: View {
                         .padding(.horizontal, 8).padding(.vertical, 3)
                         .overlay(Capsule().strokeBorder(Color.primary.opacity(0.12), style: StrokeStyle(lineWidth: 1, dash: [3, 2])))
                 }
+            }
             }
             if !missing.isEmpty {
                 Text("\(missing.map(model.shortName).joined(separator: " and ")) \(missing.count > 1 ? "are" : "is") in this conversation but won't get this reply.")

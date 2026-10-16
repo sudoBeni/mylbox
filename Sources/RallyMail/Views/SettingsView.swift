@@ -5,7 +5,7 @@ struct SettingsView: View {
     var body: some View {
         TabView {
             AccountsSettings().tabItem { Label("Accounts", systemImage: "at") }
-            SpacesSettings().tabItem { Label("Spaces", systemImage: "square.stack") }
+            SpacesSettings().tabItem { Label("Courts", systemImage: "square.stack") }
             RulesSettings().tabItem { Label("Rules", systemImage: "wand.and.stars") }
             GeneralSettings().tabItem { Label("General", systemImage: "gearshape") }
         }
@@ -25,7 +25,11 @@ struct AccountsSettings: View {
             List {
                 ForEach(model.config.accounts) { account in
                     HStack {
-                        Avatar(EmailAddress(name: account.name, address: account.email), size: 32)
+                        Image(systemName: account.badgeSymbol)
+                            .font(.system(size: 15, weight: .semibold))
+                            .foregroundStyle(.white)
+                            .frame(width: 32, height: 32)
+                            .background(Color(hue: account.badgeHue, saturation: 0.55, brightness: 0.7), in: Circle())
                         VStack(alignment: .leading) {
                             Text(account.email).font(.headline)
                             Text(account.provider.displayName).font(.caption).foregroundStyle(.secondary)
@@ -76,6 +80,7 @@ struct AccountEditor: View {
     @State private var busy = false
     @State private var deviceCode: MicrosoftOAuth.DeviceCode?
     @State private var showAdvanced = false
+    @State private var aliasSuggestions: [String] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
@@ -110,6 +115,55 @@ struct AccountEditor: View {
                     }
                 }
                 Section {
+                    TextField("Also you", text: Binding(
+                        get: { (account.aliases ?? []).joined(separator: ", ") },
+                        set: { account.aliases = $0.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces).lowercased() }.filter { !$0.isEmpty } }),
+                              prompt: Text("other addresses of yours, comma-separated"))
+                    if !aliasSuggestions.isEmpty {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Seen in this account's mail and looking like yours:").font(.caption).foregroundStyle(.secondary)
+                            FlowChips(items: aliasSuggestions) { candidate in
+                                account.aliases = Array(Set((account.aliases ?? []) + [candidate])).sorted()
+                            }
+                        }
+                    }
+                } header: {
+                    Text("Other addresses")
+                } footer: {
+                    Text("Mail from these addresses counts as yours: your bubbles sit on the right and the sender is “you”. The account stays one of many; nothing is sorted by it.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Section("Badge") {
+                    HStack(spacing: 8) {
+                        ForEach(Self.symbols, id: \.self) { symbol in
+                            Button {
+                                account.symbol = symbol
+                            } label: {
+                                Image(systemName: symbol)
+                                    .font(.system(size: 13, weight: .semibold))
+                                    .foregroundStyle(.white)
+                                    .frame(width: 26, height: 26)
+                                    .background(Color(hue: account.badgeHue, saturation: 0.55, brightness: 0.7), in: Circle())
+                                    .overlay(Circle().strokeBorder(Color.primary, lineWidth: account.badgeSymbol == symbol ? 2 : 0).padding(-2))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    HStack(spacing: 8) {
+                        ForEach(Self.hues, id: \.self) { hue in
+                            Button {
+                                account.hue = hue
+                            } label: {
+                                Circle().fill(Color(hue: hue, saturation: 0.55, brightness: 0.7)).frame(width: 20, height: 20)
+                                    .overlay(Circle().strokeBorder(Color.primary, lineWidth: abs(account.badgeHue - hue) < 0.01 ? 2 : 0).padding(-2))
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    Text("The badge marks every mail that came in through this account, so you see where it is from at a glance.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+                Section {
                     DisclosureGroup("Server settings", isExpanded: $showAdvanced) {
                         TextField("Username", text: $account.username)
                         endpointFields("IMAP (incoming)", $account.imap)
@@ -132,9 +186,17 @@ struct AccountEditor: View {
             }
             .padding()
         }
-        .frame(width: 520, height: 520)
-        .onAppear { showAdvanced = account.provider == .imap }
+        .frame(width: 520, height: 640)
+        .onAppear {
+            showAdvanced = account.provider == .imap
+            let known = Set((account.aliases ?? []).map { $0.lowercased() })
+            aliasSuggestions = ((try? model.store.aliasCandidates(account: account.id, name: account.name, email: account.email)) ?? [])
+                .filter { !known.contains($0) }.prefix(6).map { $0 }
+        }
     }
+
+    static let symbols = ["envelope", "graduationcap", "briefcase", "building.2", "person", "star", "house", "bolt", "leaf", "heart", "cloud", "at"]
+    static let hues: [Double] = [0.0, 0.08, 0.16, 0.3, 0.45, 0.55, 0.65, 0.78, 0.9]
 
     private var hasRefreshToken: Bool { Keychain.get(Keychain.refreshTokenKey(account.id)) != nil }
 
@@ -221,7 +283,7 @@ struct SpacesSettings: View {
 
     var body: some View {
         VStack(alignment: .leading) {
-            Text("A space bundles whole conversations about one topic. It filters the list, and it can be mirrored as Markdown into another project, so that project (and its AI assistant) sees the mails.")
+            Text("A court bundles the topics of one area of your life, e.g. Volleyball Finance or Business. It groups them under Courts, and it can be mirrored as Markdown into another project, so that project (and its AI assistant) sees the mails.")
                 .font(.callout)
                 .foregroundStyle(.secondary)
             List {
@@ -241,7 +303,7 @@ struct SpacesSettings: View {
                 }
             }
             HStack {
-                Button("New Space") { editing = Space(name: "") }
+                Button("New Court") { editing = Space(name: "") }
                 Spacer()
                 Button("Export All Now") { model.exportAll() }
             }
@@ -275,7 +337,7 @@ struct SpaceEditor: View {
                     TextField("Add mails automatically from", text: $senders,
                               prompt: Text("kasse@vbc.ch, @swissvolley.ch"), axis: .vertical)
                 } footer: {
-                    Text("Addresses or domains, separated by commas. Conversations with them join this space automatically. Putting a conversation into a space by hand (P) can add its sender here too.")
+                    Text("Addresses or domains, separated by commas. Conversations with them join this court automatically. Putting a conversation into a space by hand (P) can add its sender here too.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 Section {
@@ -427,6 +489,7 @@ enum RuleText {
         let actions = rule.actions.map { action -> String in
             switch action {
             case .addToSpace(let id): "add to \(spaces.first { $0.id == id }?.name ?? "space")"
+            case .setProject(let id): "project \(spaces.flatMap(\.projects).first { $0.id == id }?.name ?? "?")"
             case .setCategory(let category): "move to \(category.displayName)"
             case .archive: "archive"
             case .markRead: "mark read"
@@ -442,6 +505,7 @@ struct RuleEditor: View {
     @Environment(\.dismiss) private var dismiss
     @State var rule: Rule
     @State private var spaceIDs: Set<UUID> = []
+    @State private var projectIDs: [UUID] = []
     @State private var category: MailCategory?
     @State private var archive = false
     @State private var markRead = false
@@ -516,6 +580,7 @@ struct RuleEditor: View {
         for action in rule.actions {
             switch action {
             case .addToSpace(let id): spaceIDs.insert(id)
+            case .setProject(let id): projectIDs.append(id)
             case .setCategory(let value): category = value
             case .archive: archive = true
             case .markRead: markRead = true
@@ -526,6 +591,8 @@ struct RuleEditor: View {
 
     private func save() {
         var actions: [RuleAction] = spaceIDs.sorted { $0.uuidString < $1.uuidString }.map { .addToSpace($0) }
+        // Project actions have no controls here; they are kept as they are.
+        actions += projectIDs.map { .setProject($0) }
         if let category { actions.append(.setCategory(category)) }
         if markRead { actions.append(.markRead) }
         if flag { actions.append(.flag) }
@@ -595,6 +662,7 @@ struct GeneralSettings: View {
                 Text("An open-source language model runs directly on this Mac. It sorts mail into Important, Updates, Newsletters and Spam, marks mails that need a reply and writes one-line summaries. Your mail never leaves the Mac. Rules and your own choices always win.")
                     .font(.caption).foregroundStyle(.secondary)
             }
+            CloudSettings()
             Section("Conversations") {
                 Picker("“Later” brings a conversation back at", selection: Binding(
                     get: { model.config.laterHour },
@@ -627,5 +695,98 @@ struct GeneralSettings: View {
             }
         }
         .formStyle(.grouped)
+    }
+}
+
+
+/// Small clickable chips in a row that wraps.
+struct FlowChips: View {
+    let items: [String]
+    let action: (String) -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            ForEach(items, id: \.self) { item in
+                Button("+ " + item) { action(item) }
+                    .buttonStyle(.plain)
+                    .font(.system(size: 11))
+                    .padding(.horizontal, 7).padding(.vertical, 3)
+                    .background(Color.primary.opacity(0.06), in: Capsule())
+            }
+        }
+    }
+}
+
+/// Optional: a cloud model through OpenRouter for setting RallyMail up (sub-court suggestions, the sorting
+/// assistant's names). Sorting incoming mail always stays on the Mac.
+struct CloudSettings: View {
+    @Environment(AppModel.self) private var model
+    @State private var key = Keychain.get(OpenRouter.keychainKey) ?? ""
+    @State private var models: [OpenRouter.Model] = []
+    @State private var status: String?
+    @State private var testing = false
+
+    var body: some View {
+        Section {
+            SecureField("OpenRouter API key", text: $key, prompt: Text("sk-or-…"))
+                .onSubmit(saveKey)
+                .onChange(of: key) { _, _ in saveKey() }
+            Picker("Model", selection: Binding(
+                get: { model.config.cloudModelID },
+                set: { value in model.updateConfig { $0.cloudModelID = value } })) {
+                if models.isEmpty && !model.config.cloudModelID.isEmpty {
+                    Text(model.config.cloudModelID).tag(model.config.cloudModelID)
+                }
+                if models.isEmpty { Text("Loading models…").tag("") }
+                ForEach(models) { item in
+                    Text("\(item.name) · $\(item.pricePerMillion, specifier: "%.2f")/M").tag(item.id)
+                }
+            }
+            Toggle("Use it for sub-court suggestions and the sorting assistant", isOn: Binding(
+                get: { model.config.cloudForSetup },
+                set: { value in model.updateConfig { $0.cloudForSetup = value } }))
+                .disabled(key.isEmpty || model.config.cloudModelID.isEmpty)
+            HStack {
+                Button(testing ? "Testing…" : "Test Key") { Task { await test() } }
+                    .disabled(key.isEmpty || model.config.cloudModelID.isEmpty || testing)
+                if let status { Text(status).font(.caption).foregroundStyle(.secondary) }
+            }
+        } header: {
+            Text("Cloud AI for setting up (optional)")
+        } footer: {
+            Text("Only when you ask for suggestions, RallyMail sends the titles, keywords and one-line summaries of a court's topics (and court names) to OpenRouter and the model's provider. Never mail text, addresses or attachments. Sorting incoming mail stays on this Mac. The key is kept in the Keychain.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+        .task {
+            guard models.isEmpty, let list = try? await OpenRouter.models() else { return }
+            models = list
+            if model.config.cloudModelID.isEmpty, let preferred = OpenRouter.preferred(in: list) {
+                model.updateConfig { $0.cloudModelID = preferred.id }
+            }
+        }
+    }
+
+    private func saveKey() {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            Keychain.delete(OpenRouter.keychainKey)
+            if model.config.cloudForSetup { model.updateConfig { $0.cloudForSetup = false } }
+        } else {
+            try? Keychain.set(trimmed, for: OpenRouter.keychainKey)
+        }
+        status = nil
+    }
+
+    private func test() async {
+        testing = true
+        defer { testing = false }
+        saveKey()
+        let client = OpenRouter(apiKey: key.trimmingCharacters(in: .whitespacesAndNewlines), model: model.config.cloudModelID)
+        do {
+            _ = try await client.complete(system: "Answer only with JSON.", user: "Reply with {\"ok\": true}", grammar: nil, maxTokens: 20)
+            status = "Works."
+        } catch {
+            status = error.localizedDescription
+        }
     }
 }
