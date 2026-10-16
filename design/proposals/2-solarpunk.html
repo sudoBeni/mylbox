@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RallyMail · Solarpunk</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght,SOFT@9..144,400..700,100&family=Figtree:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+const LEAF = '<svg viewBox="0 0 16 16"><path d="M3 13C3 6 7 3 13.5 2.5 13 9 10 13 3 13z"/><path d="M3 13 9.5 6.5"/></svg>';
+const THEME = {
+  kicker: "Vorschlag 2 · Solarpunk",
+  title: "Ein Garten statt eines Postfachs",
+  desc: "Warmes Papier, Moosgrün, Sonnengelb und Terrakotta. Courts sind Beete unter Jugendstil-Bögen, Mail wächst darin und wird geerntet statt abgearbeitet. Der Graveyard wird zum <b>Kompost</b>: nichts geht verloren, es wird zu Erde. Passt zur lokalen KI: läuft auf deinem Mac, braucht keine Cloud, verbraucht wenig. Die Sonne oben zeigt den Sync-Stand.",
+  swatches: [["#3d6b45", "Moos"], ["#f2b33d", "Sonne"], ["#d4683f", "Terrakotta"], ["#3e8e8a", "Wasser"], ["#f4ecd8", "Papier"]],
+  labels: { graveyard: "Compost", graveHint: "Turns into soil one day. Nothing is deleted yet.", boardHint: "Every court is a bed · drag topics in to plant them",
+            newCourt: "New bed", sync: "Sun-synced 2 min ago" },
+  icons: { todo: '<svg viewBox="0 0 16 16"><path d="M8 14V7"/><path d="M8 9C8 6 6 4.5 3 4.5 3 7.5 5 9 8 9zM8 7.5c0-2.5 1.7-4 4.5-4 0 2.6-1.8 4-4.5 4z"/></svg>',
+           grave: '<svg viewBox="0 0 16 16"><path d="M2.5 9h11l-1.3 4.5H3.8z"/><path d="M5 9c0-2 1.5-3 3-3s3 1 3 3M8 6V3.5M8 4.5c1-1.5 2.5-1.5 3-1"/></svg>' },
+  sync: '<svg class="sun" viewBox="0 0 40 22"><path d="M4 20h32" stroke-width="1.6"/><path d="M11 20a9 9 0 0 1 18 0" stroke-width="1.6"/><path d="M20 6V3M10 10 8 8M30 10l2-2M6 16H3M34 16h3" stroke-width="1.4"/></svg><span>Sun-synced 2 min ago</span>',
+  after() {
+    document.querySelectorAll(".court:not(.grave) .box-head").forEach(h => {
+      if (!h.querySelector(".vine")) h.insertAdjacentHTML("afterbegin", '<svg class="vine" viewBox="0 0 200 40" preserveAspectRatio="none"><path d="M0 34 C40 34 50 10 100 10 S160 34 200 34"/><path d="M60 20c-4-8 2-12 8-11-1 6-4 10-8 11zM140 20c4-8-2-12-8-11 1 6 4 10 8 11zM100 10c-3-6 0-9 4-9 0 4-1 7-4 9z"/></svg>');
+    });
+    document.querySelectorAll(".proj-open").forEach(p => { if (!p.querySelector("svg")) p.insertAdjacentHTML("afterbegin", LEAF); });
+  },
+};
+</script>
+<style>
+:root {
+  --paper: #f4ecd8; --paper2: #fbf6ea; --card: #fffaf0; --line: #e3d6b8; --ink: #27352a; --ink2: #5d6b58; --ink3: #9a9a82;
+  --moss: #3d6b45; --leaf: #7aa95c; --leaf-soft: #e6eed3; --sun: #f2b33d; --sun-soft: #fbe9bf; --terra: #d4683f; --water: #3e8e8a;
+}
+* { box-sizing: border-box; }
+body { margin: 0; color: var(--ink); font: 13.5px/1.45 Figtree, system-ui, sans-serif; -webkit-font-smoothing: antialiased;
+  background: radial-gradient(1200px 500px at 80% -10%, #fde6a8 0%, transparent 60%), linear-gradient(#f7eed6, #e9e2c6 60%, #cfdcae); min-height: 100vh; }
+svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.stage { max-width: 1320px; margin: 0 auto; padding: 32px 16px 40px; position: relative; }
+.stage::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 320px; z-index: -1; opacity: .5;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1200 300' preserveAspectRatio='none'%3E%3Cpath d='M0 180 C200 120 400 220 600 160 S1000 100 1200 170 V300 H0z' fill='%2397b878'/%3E%3Cpath d='M0 230 C250 190 450 260 700 220 S1050 200 1200 240 V300 H0z' fill='%236f9a5a'/%3E%3C/svg%3E") bottom / 100% 100% no-repeat; }
+.pitch { display: flex; gap: 32px; align-items: flex-end; justify-content: space-between; margin-bottom: 24px; flex-wrap: wrap; }
+.pitch-kicker { color: var(--terra); font-weight: 700; font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+.pitch h1 { font: 600 34px/1.1 Fraunces, serif; font-variation-settings: "SOFT" 100; margin: 6px 0 10px; color: var(--moss); }
+.pitch p { max-width: 700px; margin: 0; color: var(--ink2); font-size: 14.5px; line-height: 1.6; }
+.pitch-swatches { display: flex; gap: 12px; }
+.sw { display: flex; flex-direction: column; align-items: center; gap: 5px; font-size: 11px; color: var(--ink2); }
+.sw i { width: 38px; height: 46px; border-radius: 19px 19px 8px 8px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+.hint { text-align: center; color: var(--ink2); font-size: 12.5px; margin-top: 16px; }
+
+.win { background: var(--paper); border-radius: 22px; overflow: hidden; height: 760px; display: flex; flex-direction: column;
+  box-shadow: 0 0 0 1px rgba(61,107,69,.25), 0 30px 70px -20px rgba(61,80,40,.45); }
+.titlebar { height: 54px; display: flex; align-items: center; gap: 16px; padding: 0 18px; background: var(--moss); color: var(--paper2); }
+.lights { display: flex; gap: 8px; } .lights i { width: 12px; height: 12px; border-radius: 50%; background: var(--terra); } .lights i:nth-child(2) { background: var(--sun); } .lights i:nth-child(3) { background: var(--leaf); }
+.brand { display: flex; align-items: center; gap: 8px; font: 600 18px Fraunces, serif; margin-right: auto; }
+.brand-mark { width: 20px; height: 20px; border-radius: 10px 10px 10px 3px; background: radial-gradient(circle at 35% 30%, #ffd77a, var(--sun) 50%, var(--terra)); }
+.search { display: flex; align-items: center; gap: 8px; width: 300px; padding: 7px 12px; border-radius: 99px; background: rgba(255,250,240,.14); color: rgba(255,250,240,.75); }
+.search span { flex: 1; } kbd { font: 10px ui-monospace, monospace; padding: 1px 6px; border-radius: 99px; background: rgba(255,255,255,.15); }
+.sync { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--sun-soft); }
+.sun { width: 34px; height: 20px; color: var(--sun); }
+.compose { border: 0; width: 34px; height: 34px; border-radius: 50%; background: var(--sun); color: var(--ink); cursor: pointer; display: grid; place-items: center; }
+.body { flex: 1; display: flex; min-height: 0; }
+
+.left { width: 400px; flex: none; display: flex; flex-direction: column; background: var(--paper2); border-right: 1px solid var(--line); }
+.strip { display: flex; align-items: center; gap: 8px; padding: 14px 18px 8px; }
+.strip-tab { font: 600 20px Fraunces, serif; color: var(--moss); } .strip-spacer { flex: 1; }
+.eye { border: 0; background: none; color: var(--ink3); cursor: pointer; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 99px; font-size: 11.5px; font-weight: 600; background: var(--leaf-soft); color: var(--moss); }
+.chip svg { width: 12px; height: 12px; } .chip i { font-style: normal; cursor: pointer; margin-left: 2px; }
+.chip.suggest { background: none; border: 1.5px dashed var(--leaf); cursor: pointer; }
+.chats { flex: 1; overflow: auto; padding: 0 10px; }
+.row { display: flex; gap: 11px; padding: 11px 10px; border-radius: 16px; cursor: pointer; margin-bottom: 2px; }
+.row:hover { background: rgba(122,169,92,.12); } .row.sel { background: var(--leaf-soft); box-shadow: inset 3px 0 0 var(--moss); }
+.avatar { width: 34px; height: 34px; border-radius: 50% 50% 50% 14%; flex: none; display: grid; place-items: center; font-size: 11.5px; font-weight: 700; color: var(--moss); background: var(--leaf-soft); }
+.row:nth-child(3n+2) .avatar { background: var(--sun-soft); color: #8a5a00; } .row:nth-child(3n) .avatar { background: #f6d9cb; color: #94401f; }
+.row-main { flex: 1; min-width: 0; }
+.row-top { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink2); }
+.row-top b { font-weight: 600; color: var(--ink); } .unread .row-top b { font-weight: 700; color: var(--moss); } .unread .row-line { color: var(--ink); }
+.dash { color: var(--ink3); }
+.row-people { margin-top: 2px; font-size: 12px; color: var(--ink3); display: flex; gap: 6px; align-items: center; white-space: nowrap; overflow: hidden; }
+.tag { font-size: 10.5px; padding: 0 7px; border-radius: 99px; background: var(--leaf-soft); color: var(--moss); } .tag.todo { background: var(--sun-soft); color: #8a5a00; }
+.row-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.time { font-size: 11px; color: var(--ink3); }
+.badge { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 10px; background: var(--sun); color: var(--ink); font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+
+.infos { height: 33%; margin: 0 10px 10px; border-radius: 18px; background: #e8efe0; display: flex; flex-direction: column; padding: 10px 8px 6px; border: 1px solid #d2dfc2; }
+.infos-head { display: flex; justify-content: space-between; align-items: baseline; padding: 0 8px 6px; font: 600 15px Fraunces, serif; color: var(--water); }
+.infos-new { font: 600 11px Figtree, sans-serif; color: var(--water); }
+#infos { overflow: auto; }
+.info { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 10px; font-size: 12px; color: var(--ink3); white-space: nowrap; }
+.info:hover { background: rgba(62,142,138,.08); }
+.info b { font-weight: 500; color: var(--ink2); width: 108px; flex: none; } .info.unread b { color: var(--ink); font-weight: 650; }
+.info-what { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.info-dot { width: 6px; height: 6px; border-radius: 50%; } .info.unread .info-dot { background: var(--water); }
+.info-n { font-size: 10.5px; font-weight: 700; color: var(--water); }
+
+.right { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--paper); }
+.board-head { display: flex; align-items: baseline; justify-content: space-between; padding: 16px 22px 6px; }
+.board-head h2 { margin: 0; font: 600 22px Fraunces, serif; color: var(--moss); } .board-head span { font-size: 11.5px; color: var(--ink3); }
+.board-scroll { overflow: auto; padding: 10px 20px 20px; display: flex; flex-direction: column; gap: 14px; }
+.box { background: var(--card); border-radius: 18px; padding: 12px 14px 10px; border: 1px solid var(--line); position: relative; }
+.box-head { display: flex; align-items: center; gap: 8px; padding: 2px 2px 8px; position: relative; }
+.box-head h3 { margin: 0; font: 600 16px Fraunces, serif; }
+.box-head svg:not(.vine) { color: var(--moss); width: 17px; height: 17px; }
+.count { font-size: 11px; font-weight: 700; color: var(--terra); } .count.muted { color: var(--ink3); }
+.box-hint { font-size: 11.5px; color: var(--ink3); margin: 0 0 0 auto; font-style: italic; } .grave .box-hint { margin: 0 2px 4px; }
+.todo-box { background: linear-gradient(135deg, #fff3d2, var(--card) 60%); border-color: #f0d898; }
+.todo-box .box-head svg { color: #b07a00; }
+.item { display: grid; grid-template-columns: auto 1fr auto; gap: 9px; align-items: baseline; padding: 7px 6px; border-top: 1px dashed var(--line); cursor: pointer; font-size: 12.5px; border-radius: 8px; }
+.item:hover { background: rgba(242,179,61,.1); }
+.item-k { font-weight: 700; color: var(--moss); } .item-l { color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .item-p { color: var(--ink3); font-size: 11.5px; }
+.suggest { font-size: 11px; color: var(--moss); border: 1.5px dashed var(--leaf); border-radius: 99px; padding: 0 8px; font-weight: 600; }
+.accept { margin-left: auto; border: 0; background: var(--moss); border-radius: 99px; padding: 4px 12px; font: 600 11px Figtree, sans-serif; color: var(--paper2); cursor: pointer; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+/* Courts as garden beds under an arch */
+.court { cursor: pointer; border-radius: 110px 110px 18px 18px / 46px 46px 18px 18px; padding-top: 26px; background: linear-gradient(var(--card) 70%, #f3ead2); transition: transform .2s, box-shadow .2s; }
+.court:hover { transform: translateY(-2px); box-shadow: 0 14px 28px -16px rgba(61,107,69,.6); border-color: var(--leaf); }
+.court .box-head { justify-content: center; flex-wrap: wrap; text-align: center; padding-bottom: 10px; }
+.court .count { flex-basis: 100%; text-align: center; }
+.vine { position: absolute; left: 10%; right: 10%; top: -22px; width: 80%; height: 22px; color: var(--leaf); stroke-width: 1.4; }
+.proj { display: flex; align-items: center; gap: 8px; padding: 6px 6px; border-top: 1px dashed var(--line); font-size: 12.5px; }
+.proj span:first-child { flex: 1; } .proj-open { display: inline-flex; align-items: center; gap: 3px; color: var(--moss); font-size: 11px; font-weight: 700; }
+.proj-open svg { width: 11px; height: 11px; color: var(--leaf); fill: var(--leaf-soft); } .proj-n { color: var(--ink3); font-size: 11px; min-width: 14px; text-align: right; }
+.new-court { display: grid; place-items: center; min-height: 90px; color: var(--moss); border: 1.5px dashed var(--leaf); background: none; font-weight: 600; border-radius: 110px 110px 18px 18px / 46px 46px 18px 18px; }
+.grave { background: linear-gradient(#f3e6cf, #e8d6b5); border-color: #d9c39b; } .grave .box-head svg { color: #8a5d2e; } .grave h3 { color: #6e4a24; }
+
+.convo { background: var(--paper2); }
+.convo-head { display: flex; align-items: center; gap: 10px; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.convo-head h2 { margin: 0; font: 600 17px Fraunces, serif; color: var(--moss); } .sub { font-size: 11px; color: var(--ink3); } .spacer { flex: 1; }
+.back { border: 0; background: none; font-size: 24px; color: var(--moss); cursor: pointer; padding: 0 4px; }
+.ghost { border: 1.5px solid var(--leaf); background: none; border-radius: 99px; padding: 4px 12px; font: 600 12px Figtree, sans-serif; color: var(--moss); cursor: pointer; }
+.convo-scroll { flex: 1; overflow: auto; padding: 8px 24px 16px; }
+.divider { display: flex; align-items: center; gap: 8px; margin: 20px 0 10px; font-size: 12px; }
+.divider::before, .divider::after { content: ""; flex: 1; height: 8px; background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='8'%3E%3Cpath d='M0 4 Q6 0 12 4 T24 4' fill='none' stroke='%237aa95c' stroke-width='1.2'/%3E%3C/svg%3E") repeat-x center; opacity: .7; }
+.divider-k { font: 600 15px Fraunces, serif; color: var(--moss); }
+.msg { margin: 12px 0; max-width: 78%; } .msg.me { margin-left: auto; text-align: right; }
+.who { font-size: 11.5px; font-weight: 700; margin: 0 6px 3px; color: var(--ink2); } .who span { font-weight: 400; color: var(--ink3); margin-left: 4px; }
+.bubble { display: inline-block; text-align: left; padding: 10px 14px; border-radius: 20px 20px 20px 6px; background: var(--leaf-soft); line-height: 1.5; }
+.me .bubble { background: var(--moss); color: var(--paper2); border-radius: 20px 20px 6px 20px; }
+.aud { font-size: 10.5px; color: var(--ink3); margin: 3px 8px 0; }
+.att { margin-top: 8px; padding: 7px 10px; border-radius: 12px; background: var(--card); font-size: 12px; font-weight: 600; } .att span { font-size: 10px; color: var(--terra); margin-left: 4px; }
+.change { margin-top: 8px; padding: 7px 10px; background: var(--card); border-radius: 12px; font-size: 12px; color: var(--ink2); }
+.change-l { display: block; font-size: 10.5px; color: var(--ink3); margin-bottom: 2px; font-style: italic; }
+del { color: #9a3a17; background: #f6d9cb; border-radius: 4px; padding: 0 3px; } ins { color: var(--moss); background: #d7e8bf; text-decoration: none; border-radius: 4px; padding: 0 3px; }
+.event { text-align: center; font-size: 11.5px; color: var(--ink3); margin: 12px 0; font-style: italic; }
+.composer { padding: 10px 18px 16px; }
+.audience { font-size: 12px; color: var(--ink2); margin: 0 6px 6px; } .audience span { color: var(--ink3); } .audience b { color: var(--moss); }
+.input { display: flex; justify-content: space-between; align-items: center; padding: 12px 16px; border-radius: 22px; background: var(--card); border: 1.5px solid var(--line); color: var(--ink3); }
+.input kbd { background: var(--sun-soft); color: #8a5a00; }
+.dock { width: 0; flex: none; display: flex; flex-direction: column; gap: 10px; align-items: center; padding: 14px 0; background: var(--paper); border-left: 1px solid var(--line); overflow: hidden; transition: width .25s; }
+.opened .dock { width: 58px; }
+.sq { width: 38px; height: 44px; border-radius: 19px 19px 8px 8px; display: grid; place-items: center; background: var(--card); border: 1px solid var(--line); color: var(--moss); cursor: pointer; position: relative; }
+.sq span { position: absolute; top: -5px; right: -6px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: var(--sun); color: var(--ink); font-size: 9.5px; font-weight: 700; display: grid; place-items: center; }
+.sq.on { background: var(--moss); color: var(--paper2); } .todo-sq { background: var(--sun-soft); color: #8a5a00; } .grave-sq { margin-top: auto; color: #8a5d2e; background: #f0e2c6; }
+@media (max-width: 760px) { .left { width: 100%; } .right, .dock { display: none; } .opened .right { display: flex; position: absolute; inset: 0; } .win { position: relative; } .search { display: none; } }
+</style>
+</head>
+<body>
+<div class="stage">
+<header class="pitch">
+  <div class="pitch-text">
+    <div class="pitch-kicker" id="kicker"></div>
+    <h1 id="ptitle"></h1>
+    <p id="pdesc"></p>
+  </div>
+  <div class="pitch-swatches" id="swatches"></div>
+</header>
+
+<div class="win" id="win">
+  <div class="titlebar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="brand"><span class="brand-mark"></span><span>RallyMail</span></div>
+    <div class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg><span>Search all mail</span><kbd>⌘K</kbd></div>
+    <div class="sync" id="sync"></div>
+    <button class="compose" title="New mail"><svg viewBox="0 0 16 16"><path d="M3 13h3l7-7-3-3-7 7z"/><path d="M9 4l3 3"/></svg></button>
+  </div>
+  <div class="body">
+    <aside class="left">
+      <div class="strip">
+        <span class="strip-tab on" id="chatsLabel"></span>
+        <span class="strip-court" id="stripCourt"></span>
+        <span class="strip-spacer"></span>
+        <button class="eye" title="Hide sorted chats"><svg viewBox="0 0 16 16"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+      </div>
+      <div class="chats" id="chats"></div>
+      <div class="infos">
+        <div class="infos-head"><span id="infosLabel"></span><span class="infos-new">6 new</span></div>
+        <div id="infos"></div>
+      </div>
+    </aside>
+    <main class="right" id="right"></main>
+    <nav class="dock" id="dock"></nav>
+  </div>
+</div>
+<p class="hint">Click a chat on the left to open it · click a court to filter · Esc goes back to the board</p>
+</div>
+
+<script>
+const D = {
+  chats: [
+    { id: 0, people: "Lea Graf, Reto Meier", keyword: "Trainingsplan", line: "Halle B ist am Dienstag zu, Donnerstag 19:30?", time: "09:42", unread: 2, court: 0 },
+    { id: 1, people: "Reto Meier", keyword: "Jahresabrechnung", line: "Braucht die Belege der Auswärtsspiele bis Freitag", time: "08:15", unread: 1, court: 0, todo: true },
+    { id: 2, people: "Nina Keller", keyword: "Cheersfeed", line: "Feedback zum neuen Onboarding, drei Punkte", time: "Gestern", unread: 0, court: 1, project: "Cheersfeed" },
+    { id: 3, people: "Steuerverwaltung Bern", keyword: "Steuererklärung 2025", line: "Frist bis 30. November verlängert", time: "Gestern", unread: 0, court: 2, todo: true },
+    { id: 4, people: "Marco, Sandra und 3 weitere", keyword: "Turnier Samstag", line: "Wer fährt? Treffpunkt 7:30 am Bahnhof", time: "Mo", unread: 3, court: null, suggest: 0 },
+    { id: 5, people: "Mama", keyword: "Weihnachten", line: "Kommst du am 24. schon zum Mittagessen?", time: "So", unread: 0, court: 3 },
+    { id: 6, people: "Jonas Brunner", keyword: "Offerte Website", line: "Kann ich die Offerte bis Ende Monat haben?", time: "12. Okt", unread: 0, court: null, suggest: 1 },
+  ],
+  infos: [
+    { name: "GitHub", what: "3 pull requests, 1 failed check", n: 4 },
+    { name: "Coolify", what: "Deploy cheersfeed-web succeeded", n: 1 },
+    { name: "Digitec Galaxus", what: "Quittung Bestellung 4471-22", n: 0 },
+    { name: "Swiss Volley", what: "Newsletter Oktober", n: 1 },
+    { name: "SBB", what: "Dein Billett Bern–Luzern", n: 0 },
+  ],
+  courts: [
+    { name: "Volleyball", icon: "ball", open: 4, projects: [["Jahresabrechnung", 2, 6], ["Training", 2, 11], ["Andere", 0, 4]] },
+    { name: "Geschäft", icon: "case", open: 3, projects: [["Cheersfeed", 2, 9], ["Slackers", 1, 5], ["Andere", 0, 3]] },
+    { name: "Steuern", icon: "doc", open: 1, topics: ["Steuererklärung 2025", "Lohnausweis Q3", "AHV Beiträge"] },
+    { name: "Familie", icon: "home", open: 0, topics: ["Weihnachten", "Ferien Engadin", "Fotos Geburtstag"] },
+  ],
+  graveyard: { name: "Graveyard", n: 23 },
+};
+
+const ICONS = {
+  ball: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 2c-1.5 3-1.5 9 0 12M2.6 5.5c3 1 8 1 10.8 0M2.6 10.5c3-1 8-1 10.8 0"/></svg>',
+  case: '<svg viewBox="0 0 16 16"><rect x="2" y="5" width="12" height="8" rx="1.5"/><path d="M6 5V3.5h4V5M2 9h12"/></svg>',
+  doc: '<svg viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4z"/><path d="M9 2v3h3M6 8h4M6 10.5h4"/></svg>',
+  home: '<svg viewBox="0 0 16 16"><path d="M2.5 7.5 8 3l5.5 4.5V13h-11z"/><path d="M6.5 13V9.5h3V13"/></svg>',
+  grave: '<svg viewBox="0 0 16 16"><path d="M4 14V7a4 4 0 0 1 8 0v7z"/><path d="M8 6.5v4M6.5 8h3M2.5 14h11"/></svg>',
+  todo: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M5.5 8.2 7.2 10 10.5 6.2"/></svg>',
+};
+const T = Object.assign({
+  chats: "Chats", infos: "Infos", courts: "Courts", todo: "To-do", todoHint: "goes away when you answer",
+  unsorted: "Unsorted", graveyard: "Graveyard", graveHint: "Could be deleted. Nothing here is deleted yet.",
+  boardHint: "Click a court to open it · drag topics or chats into it", newCourt: "New Court", sync: "Synced 2 min ago",
+}, THEME.labels || {});
+const icon = k => (THEME.icons && THEME.icons[k]) || ICONS[k];
+
+let open = null, court = null;
+const $ = id => document.getElementById(id);
+const initials = s => s.split(/[ ,]+/).filter(w => /^[A-ZÄÖÜ]/.test(w)).slice(0, 2).map(w => w[0]).join("");
+
+function renderChats() {
+  const list = court === null ? D.chats : D.chats.filter(c => c.court === court);
+  $("chats").innerHTML = list.map(c => `
+    <div class="row ${c.unread ? "unread" : ""} ${open === c.id ? "sel" : ""}" onclick="openChat(${c.id})">
+      <div class="avatar">${initials(c.people)}</div>
+      <div class="row-main">
+        <div class="row-top"><b>${c.keyword}</b><span class="dash"> – </span><span class="row-line">${c.line}</span></div>
+        <div class="row-people">${c.people}${c.court !== null ? `<span class="tag">${D.courts[c.court].name}</span>` : ""}${c.todo ? `<span class="tag todo">${T.todo}</span>` : ""}</div>
+      </div>
+      <div class="row-side"><span class="time">${c.time}</span>${c.unread ? `<span class="badge">${c.unread}</span>` : ""}</div>
+    </div>`).join("");
+  $("stripCourt").innerHTML = court === null ? "" : `<span class="chip on">${icon(D.courts[court].icon)}${D.courts[court].name}<i onclick="setCourt(null)">×</i></span>`;
+}
+
+function renderInfos() {
+  $("infos").innerHTML = D.infos.map(i => `
+    <div class="info ${i.n ? "unread" : ""}"><span class="info-dot"></span><b>${i.name}</b><span class="info-what">${i.what}</span>${i.n ? `<span class="info-n">${i.n}</span>` : ""}</div>`).join("");
+}
+
+function topicItem(c) {
+  return `<div class="item" onclick="openChat(${c.id})"><span class="item-k">${c.keyword}</span><span class="item-l">${c.line}</span><span class="item-p">${c.people}</span></div>`;
+}
+
+function renderBoard() {
+  const todos = D.chats.filter(c => c.todo), unsorted = D.chats.filter(c => c.court === null);
+  $("right").className = "right board";
+  $("right").innerHTML = `
+    <div class="board-head"><h2>${T.courts}</h2><span>${T.boardHint}</span></div>
+    <div class="board-scroll">
+      <section class="box todo-box">
+        <div class="box-head">${icon("todo")}<h3>${T.todo}</h3><span class="count">${todos.length}</span><span class="box-hint">${T.todoHint}</span></div>
+        ${todos.map(topicItem).join("")}
+      </section>
+      <section class="box unsorted-box">
+        <div class="box-head"><h3>${T.unsorted}</h3><span class="count muted">${unsorted.length}</span><button class="accept">Accept ${unsorted.length} suggestions</button></div>
+        ${unsorted.map(c => `<div class="item" onclick="openChat(${c.id})"><span class="item-k">${c.keyword}</span><span class="item-l">${c.line}</span><span class="suggest">${D.courts[c.suggest].name}?</span></div>`).join("")}
+      </section>
+      <div class="grid">
+        ${D.courts.map((k, i) => `
+          <section class="box court" onclick="setCourt(${i})">
+            <div class="box-head">${icon(k.icon)}<h3>${k.name}</h3>${k.open ? `<span class="count">${k.open} open</span>` : ""}</div>
+            ${k.projects ? k.projects.map(p => `<div class="proj"><span>${p[0]}</span>${p[1] ? `<span class="proj-open">${p[1]} open</span>` : ""}<span class="proj-n">${p[2]}</span></div>`).join("")
+                         : k.topics.map(t => `<div class="proj"><span>${t}</span></div>`).join("")}
+          </section>`).join("")}
+        <section class="box new-court">+ ${T.newCourt}</section>
+        <section class="box court grave">
+          <div class="box-head">${icon("grave")}<h3>${T.graveyard}</h3><span class="count muted">${D.graveyard.n}</span></div>
+          <p class="box-hint">${T.graveHint}</p>
+        </section>
+      </div>
+    </div>`;
+  $("dock").innerHTML = "";
+  $("win").classList.remove("opened");
+}
+
+function renderConversation() {
+  const c = D.chats[open];
+  $("right").className = "right convo";
+  const courtChip = c.court !== null ? `<span class="chip on">${icon(D.courts[c.court].icon)}${D.courts[c.court].name}</span>`
+    : `<span class="chip suggest">${D.courts[c.suggest].name}?</span>`;
+  $("right").innerHTML = `
+    <div class="convo-head">
+      <button class="back" onclick="closeChat()">‹</button>
+      <div><h2>${c.people}</h2><span class="sub">3 topics · lea.graf@vbc-bern.ch · reto.meier@vbc-bern.ch</span></div>
+      <span class="spacer"></span><button class="ghost">+ ${T.todo}</button><button class="ghost">Done</button>
+    </div>
+    <div class="convo-scroll">
+      <div class="divider"><span class="divider-k">Jahresabrechnung</span><span class="chip on">${icon("ball")}Volleyball</span></div>
+      <div class="msg them"><div class="who">Reto <span>Mo 18:02</span></div>
+        <div class="bubble">Ich brauche die Belege der Auswärtsspiele bis Freitag, sonst wird es knapp für die GV.<div class="att">Abrechnung_2025.pdf <span>v2</span></div></div>
+        <div class="aud">an dich · Kopie an Lea</div></div>
+      <div class="divider"><span class="divider-k">Trainingsplan</span>${courtChip}</div>
+      <div class="msg them"><div class="who">Lea <span>08:51</span></div>
+        <div class="bubble">Hallo zusammen, Halle B ist am Dienstag wegen der Sanierung zu. Können wir auf Donnerstag 19:00 ausweichen?</div>
+        <div class="aud">an Reto, dich</div></div>
+      <div class="msg them"><div class="who">Reto <span>09:12</span></div>
+        <div class="bubble">Donnerstag geht bei mir. Ich frage den Hauswart wegen dem Schlüssel.
+          <div class="change"><span class="change-l">changed Lea's text</span>Donnerstag <del>19:00</del> <ins>19:30</ins> ausweichen</div></div>
+        <div class="aud">an Lea, dich</div></div>
+      <div class="event">Sandra was added by Reto</div>
+      <div class="msg me"><div class="who">Du <span>09:40</span></div>
+        <div class="bubble">Passt, ich schicke den neuen Plan heute Abend rum. 🏐</div>
+        <div class="aud">an Lea, Reto · Kopie an Sandra</div></div>
+    </div>
+    <div class="composer">
+      <div class="audience"><span>To</span> <b>Lea</b>, <b>Reto</b> · <span>copy to</span> <b>Sandra</b></div>
+      <div class="input">Schreib eine Antwort…<kbd>⌘↩</kbd></div>
+    </div>`;
+  $("dock").innerHTML = `<div class="sq todo-sq" title="${T.todo}">${icon("todo")}<span>2</span></div>` +
+    D.courts.map((k, i) => `<div class="sq ${c.court === i ? "on" : ""}" title="${k.name}" onclick="setCourt(${i})">${icon(k.icon)}${k.open ? `<span>${k.open}</span>` : ""}</div>`).join("") +
+    `<div class="sq grave-sq" title="${T.graveyard}">${icon("grave")}</div>`;
+  $("win").classList.add("opened");
+}
+
+function render() {
+  renderChats();
+  open === null ? renderBoard() : renderConversation();
+  THEME.after && THEME.after();
+}
+function openChat(i) { open = i; render(); }
+function closeChat() { open = null; render(); }
+function setCourt(i) { court = i; if (i !== null && open !== null && D.chats[open].court !== i) open = null; render(); event && event.stopPropagation(); }
+document.addEventListener("keydown", e => { if (e.key === "Escape") { open = null; court = null; render(); } });
+
+$("kicker").textContent = THEME.kicker; $("ptitle").textContent = THEME.title; $("pdesc").innerHTML = THEME.desc;
+$("swatches").innerHTML = THEME.swatches.map(s => `<div class="sw"><i style="background:${s[0]}"></i><span>${s[1]}</span></div>`).join("");
+$("chatsLabel").textContent = T.chats; $("infosLabel").textContent = T.infos; $("sync").innerHTML = THEME.sync || `<span class="sync-dot"></span>${T.sync}`;
+renderInfos(); render();
+</script>
+</body>
+</html>

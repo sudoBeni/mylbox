@@ -2,9 +2,10 @@
 
 A calm, keyboard-first mail app for macOS. One list, two verbs, nothing ever deleted. Conversations read like chat, and whole conversations can be shared with your other projects as Markdown.
 
-- **One list.** Mail from people is a row: who, the one-line summary, the subject in fine print. Mail from machines is folded into one *Updates* and one *Newsletters* row you can open or clear. Below that the list simply continues as *Earlier*: everything you have ever handled, newest first, with sticky month headers and a date rail to jump.
+- **Chats, Courts and Infos.** The app opens on *Chats*: everything with the same people in one timeline, like a messenger (Reto alone is one chat, Reto and Lea together another). A marker shows where each topic picks up. *Courts* are your own areas, e.g. Volleyball Finance or Business: each court lists its topics, and Courts is the only place with Done and Later. *Infos* sit in the lower third of the list, always in sight: one row per sender of one-way mail (GitHub, Coolify, receipts, newsletters) with a count of new ones. Reading is enough there. Right-click a sender to move it to Infos or back to Chats, now and for future mail.
+- **Topics: one list.** Mail from people is a row: who, the one-line summary, the subject in fine print. Mail from machines is folded into one *Updates* and one *Newsletters* row you can open or clear. Below that the list simply continues as *Earlier*: everything you have ever handled, newest first, with sticky month headers and a date rail to jump.
 - **Two verbs.** *Done* hides a conversation and archives it on the server. *Later* brings it back the next morning. Nothing leaves the list on its own; only you move a row.
-- **Conversations like chat.** One bubble per message, only the new text. Under every bubble: who got it. When someone adds or drops a person, the chat says so. A reply that changed something inside the quoted mail shows the changes as a diff. Attachments get version labels. "original" shows any mail exactly as it arrived.
+- **Conversations like chat.** One bubble per message, only the new text: quotes, signatures and the header lines mail clients add ("Von: … Gesendet: …", "Am … schrieb …") are filtered out, read from the HTML part where mail programs mark them. A forwarded mail shows under its author's name and date, "via" the person who passed it on; forwarding a mail that is already in the chat is just a note. A mail sent twice is one bubble, text pasted below instead of quoted folds behind "Repeats …", and the fixed text of relay services (tutti, Airbnb) folds behind "Boilerplate". Under every bubble: who got it. When someone adds or drops a person, the chat says so. When someone changes what another person wrote earlier (edits or answers inside the quote), their bubble shows exactly which words changed. Attachments get version labels. "original" shows any mail exactly as it arrived. Nothing is ever dropped or rewritten: a bubble differs from the mail only in whitespace, and folded parts are one click away.
 - **Clear audience.** The reply box says in words who gets the mail: "To Reto · copy to Lea". Click a role to cycle To, Cc, Bcc. Leave someone out and a note warns you. Hidden copies are marked orange, and a mail you got as a hidden copy warns before you reply.
 - **Spaces bundle conversations.** A space is a filter on the same list, not a folder. Press P to put a conversation into a space, tick "also future mail from this sender" once, and that person is sorted forever. A space can be mirrored as Markdown into a folder of another repository, so that project and its AI assistant have the full mail context.
 - **Waiting for.** Mails you sent that got no answer after a few days show up with a Nudge button.
@@ -121,18 +122,22 @@ Mail is hostile input. RallyMail is built so that a mail can never run, redirect
 ```
 Sources/RallyMailCore   no UI, unit-tested
   Net/        TextConnection (SwiftNIO + TLS/STARTTLS), IMAP client and parser, SMTP, Microsoft OAuth
-  Mail/       MIME parser, message builder, sync engine, server actions, credentials,
-              Threading (conversations, quote stripping, reply diff)
+  Mail/       MIME parser (incl. format=flowed), message builder, sync engine, server actions, credentials,
+              HTMLText (HTML → lines with quote/signature regions), Segmenter (own text, quote header,
+              forwarded body), ChatTimeline (bubbles and notes: forwards, duplicates, repeats),
+              MessageFormatter (chat layout), Threading (conversations, edits to earlier messages)
   Storage/    SQLite store (messages, threads), config (JSON), Keychain
   Automation/ heuristics, rules engine, local model (llama.cpp) and triage
   Export/     space → Markdown exporter
 Sources/RallyMail       SwiftUI app
   AppModel    list state, conversation actions (Done, Later, Reopen, spaces), sync, sending
-  Views/      MainView (list, filter strip, rail), Rows, ConversationView (bubbles, diff, space picker),
+  Views/      MainView (list, filter strip, rail), Rows, ConversationView (bubbles, edits, space picker),
               Composer (audience editor), OriginalMessageView, Settings
 ```
 
-Every message carries a `thread_id`. Replies are joined by their References / In-Reply-To headers (in any order of arrival), and replies without headers by subject plus a shared participant. A conversation's space, snooze time and "waiting" state live in the `threads` table. *Done* archives on the server (Gmail: *All Mail*), *Reopen* moves back to the inbox. Read and flag states sync in both directions.
+Every message carries a `thread_id`. Replies are joined by their References / In-Reply-To headers (in any order of arrival), new mail with the same subject and the same people within two weeks (three days for companies), and replies without headers by subject plus a shared participant. Conversations that share a file number in the subject with the same organisation are bundled into one topic automatically; weaker matches (same organisation or person, similar subject) are suggestions, and the local model is asked whether the two are one matter before a suggestion is shown.
+
+Audits on a copy of a real database (never the live one): `RALLYMAIL_AUDIT=<db copy> RALLYMAIL_AUDIT_DUMP=<txt> swift test --filter PipelineAudit` lists leaked quotes, generated lines, forwards, repeats and duplicates; `--filter FormatterAudit` checks that no bubble changes content; `--filter SuggestionAudit` lists topic suggestions; `RALLYMAIL_AUDIT_PROBE=<message id>` shows how one mail is cut. A conversation's space, snooze time and "waiting" state live in the `threads` table. *Done* archives on the server (Gmail: *All Mail*), *Reopen* moves back to the inbox. Read and flag states sync in both directions.
 
 ## Roadmap ideas
 

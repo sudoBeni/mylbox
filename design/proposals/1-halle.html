@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>RallyMail · Halle</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Inter+Tight:wght@600;700&display=swap" rel="stylesheet">
+<script>
+const THEME = {
+  kicker: "Vorschlag 1 · Halle",
+  title: "Hell, ruhig, nativ – mit Spielfeldlinien",
+  desc: "Bleibt nah an macOS und am heutigen Aufbau. Weisse Flächen wie eine frisch geputzte Turnhalle, das Orange aus dem Icon als einzige Signalfarbe (ungelesen, offen, To-do). Courts tragen feine Feldlinien als Wiedererkennung. Am wenigsten Umbau, wirkt sofort wie eine Mac-App.",
+  swatches: [["#ff5a2e", "Rally-Orange"], ["#1d1d1f", "Tinte"], ["#f5f5f2", "Hallenboden"], ["#e9e7e1", "Linie"], ["#2f7d5b", "Erledigt"]],
+};
+</script>
+<style>
+:root {
+  --bg: #ecebe7; --win: #fbfbfa; --side: #f5f5f2; --line: #e6e4de; --ink: #1d1d1f; --ink2: #6e6e73; --ink3: #a1a1a6;
+  --accent: #ff5a2e; --accent-soft: #fff0ea; --green: #2f7d5b; --bubble: #f0efeb; --me: #ff5a2e;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 13px/1.4 Inter, -apple-system, system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 1.4; stroke-linecap: round; stroke-linejoin: round; flex: none; }
+.stage { max-width: 1320px; margin: 0 auto; padding: 32px 16px 40px; }
+.pitch { display: flex; gap: 32px; align-items: flex-end; justify-content: space-between; margin-bottom: 22px; flex-wrap: wrap; }
+.pitch-kicker { color: var(--accent); font-weight: 600; font-size: 12px; letter-spacing: .06em; text-transform: uppercase; }
+.pitch h1 { font: 700 28px/1.15 "Inter Tight", Inter, sans-serif; margin: 6px 0 8px; letter-spacing: -.02em; }
+.pitch p { max-width: 680px; margin: 0; color: var(--ink2); font-size: 14px; line-height: 1.55; }
+.pitch-swatches { display: flex; gap: 12px; }
+.sw { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 10.5px; color: var(--ink2); }
+.sw i { width: 36px; height: 36px; border-radius: 9px; box-shadow: inset 0 0 0 1px rgba(0,0,0,.08); }
+.hint { text-align: center; color: var(--ink3); font-size: 12px; margin-top: 14px; }
+
+.win { background: var(--win); border-radius: 12px; overflow: hidden; height: 760px; display: flex; flex-direction: column;
+  box-shadow: 0 0 0 .5px rgba(0,0,0,.18), 0 24px 60px -12px rgba(0,0,0,.25); }
+.titlebar { height: 46px; display: flex; align-items: center; gap: 14px; padding: 0 14px; border-bottom: 1px solid var(--line); background: var(--side); }
+.lights { display: flex; gap: 8px; } .lights i { width: 12px; height: 12px; border-radius: 50%; background: #ff5f57; } .lights i:nth-child(2) { background: #febc2e; } .lights i:nth-child(3) { background: #28c840; }
+.brand { display: flex; align-items: center; gap: 7px; font-weight: 600; margin-right: auto; }
+.brand-mark { width: 18px; height: 18px; border-radius: 5px; background: linear-gradient(160deg, #ff8f5e, #ff4227); }
+.search { display: flex; align-items: center; gap: 7px; width: 280px; padding: 5px 9px; border-radius: 8px; background: rgba(0,0,0,.05); color: var(--ink3); }
+.search span { flex: 1; } kbd { font: 10px ui-monospace, monospace; padding: 1px 5px; border-radius: 4px; background: rgba(0,0,0,.06); color: var(--ink2); }
+.sync { display: flex; align-items: center; gap: 6px; color: var(--ink3); font-size: 11.5px; } .sync-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--green); }
+.compose { border: 0; background: none; color: var(--ink2); cursor: pointer; padding: 4px; }
+.body { flex: 1; display: flex; min-height: 0; }
+
+.left { width: 400px; flex: none; display: flex; flex-direction: column; border-right: 1px solid var(--line); background: var(--win); }
+.strip { display: flex; align-items: center; gap: 8px; padding: 10px 14px 8px; }
+.strip-tab { font-weight: 600; font-size: 15px; } .strip-spacer { flex: 1; }
+.eye { border: 0; background: none; color: var(--ink3); cursor: pointer; }
+.chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; border-radius: 99px; font-size: 11.5px; font-weight: 500; background: rgba(0,0,0,.05); color: var(--ink2); }
+.chip svg { width: 12px; height: 12px; } .chip.on { background: var(--accent-soft); color: #c2410c; } .chip i { font-style: normal; cursor: pointer; margin-left: 2px; opacity: .6; }
+.chip.suggest { background: none; border: 1px dashed var(--ink3); color: var(--ink2); cursor: pointer; }
+.chats { flex: 1; overflow: auto; padding: 0 8px; }
+.row { display: flex; gap: 10px; padding: 10px 8px; border-radius: 9px; cursor: pointer; position: relative; }
+.row + .row::before { content: ""; position: absolute; top: 0; left: 50px; right: 8px; border-top: 1px solid var(--line); }
+.row:hover { background: rgba(0,0,0,.035); } .row.sel { background: var(--accent-soft); } .row.sel::before, .row.sel + .row::before { display: none; }
+.avatar { width: 32px; height: 32px; border-radius: 50%; flex: none; display: grid; place-items: center; font-size: 11px; font-weight: 600; color: var(--ink2); background: #ebe9e3; }
+.row-main { flex: 1; min-width: 0; }
+.row-top { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--ink2); }
+.row-top b { font-weight: 500; color: var(--ink); } .unread .row-top b { font-weight: 650; } .unread .row-line { color: var(--ink); }
+.dash { color: var(--ink3); }
+.row-people { margin-top: 2px; font-size: 12px; color: var(--ink3); display: flex; gap: 6px; align-items: center; white-space: nowrap; overflow: hidden; }
+.tag { font-size: 10.5px; padding: 0 6px; border-radius: 4px; background: rgba(0,0,0,.045); color: var(--ink2); } .tag.todo { background: var(--accent-soft); color: #c2410c; }
+.row-side { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+.time { font-size: 11px; color: var(--ink3); }
+.badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: var(--accent); color: #fff; font-size: 10.5px; font-weight: 600; display: grid; place-items: center; }
+
+.infos { height: 33%; border-top: 1px solid var(--line); background: var(--side); display: flex; flex-direction: column; padding: 8px 8px 6px; }
+.infos-head { display: flex; justify-content: space-between; padding: 2px 8px 6px; font-weight: 600; font-size: 12px; }
+.infos-new { font-weight: 500; color: var(--accent); font-size: 11px; }
+#infos { overflow: auto; }
+.info { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; font-size: 12px; color: var(--ink3); white-space: nowrap; }
+.info:hover { background: rgba(0,0,0,.04); }
+.info b { font-weight: 500; color: var(--ink2); width: 110px; flex: none; } .info.unread b { color: var(--ink); font-weight: 600; }
+.info-what { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+.info-dot { width: 5px; height: 5px; border-radius: 50%; } .info.unread .info-dot { background: var(--accent); }
+.info-n { font-size: 10.5px; color: var(--ink2); }
+
+.right { flex: 1; min-width: 0; display: flex; flex-direction: column; background: var(--side); }
+.board-head { display: flex; align-items: baseline; justify-content: space-between; padding: 12px 18px; border-bottom: 1px solid var(--line); }
+.board-head h2 { margin: 0; font-size: 14px; } .board-head span { font-size: 11px; color: var(--ink3); }
+.board-scroll { overflow: auto; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.box { background: var(--win); border-radius: 12px; padding: 10px 12px 8px; box-shadow: 0 0 0 1px var(--line); position: relative; }
+.box-head { display: flex; align-items: center; gap: 7px; padding: 2px 2px 6px; }
+.box-head h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.box-head svg { color: var(--accent); }
+.count { font-size: 11px; font-weight: 600; color: var(--accent); } .count.muted { color: var(--ink3); }
+.box-hint { font-size: 11px; color: var(--ink3); margin: 0 0 0 auto; } .grave .box-hint { margin: 0 2px 4px; }
+.todo-box { box-shadow: 0 0 0 1px #ffd4c3; background: linear-gradient(#fffaf7, #fff); }
+.item { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: baseline; padding: 6px 4px; border-top: 1px solid var(--line); cursor: pointer; font-size: 12.5px; }
+.item:hover { background: rgba(0,0,0,.025); }
+.item-k { font-weight: 600; } .item-l { color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; } .item-p { color: var(--ink3); font-size: 11.5px; }
+.suggest { font-size: 11px; color: var(--ink2); border: 1px dashed var(--ink3); border-radius: 99px; padding: 0 7px; }
+.accept { margin-left: auto; border: 0; background: rgba(0,0,0,.05); border-radius: 6px; padding: 3px 8px; font: 500 11px Inter, sans-serif; color: var(--ink2); cursor: pointer; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; }
+.court { cursor: pointer; overflow: hidden; }
+/* Court lines: the signature of this variant */
+.court::after { content: ""; position: absolute; inset: 6px; border: 1px solid transparent; border-radius: 8px; pointer-events: none;
+  background: linear-gradient(var(--line), var(--line)) 50% 0 / 1px 100% no-repeat; opacity: 0; transition: .2s; }
+.court:hover::after { opacity: .7; }
+.court:hover { box-shadow: 0 0 0 1px #ffc2ab, 0 6px 20px -10px rgba(255,90,46,.4); }
+.proj { display: flex; align-items: center; gap: 8px; padding: 5px 4px; border-top: 1px solid var(--line); font-size: 12.5px; }
+.proj span:first-child { flex: 1; } .proj-open { color: var(--accent); font-size: 11px; font-weight: 600; } .proj-n { color: var(--ink3); font-size: 11px; min-width: 14px; text-align: right; }
+.new-court { display: grid; place-items: center; min-height: 80px; color: var(--ink3); box-shadow: none; border: 1px dashed #cfccc4; background: none; font-weight: 500; }
+.grave { opacity: .7; } .grave .box-head svg { color: var(--ink3); }
+
+.convo { background: var(--win); }
+.convo-head { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid var(--line); }
+.convo-head h2 { margin: 0; font-size: 14px; } .sub { font-size: 11px; color: var(--ink3); } .spacer { flex: 1; }
+.back { border: 0; background: none; font-size: 22px; color: var(--ink3); cursor: pointer; padding: 0 4px; }
+.ghost { border: 1px solid var(--line); background: var(--win); border-radius: 7px; padding: 4px 10px; font: 500 12px Inter, sans-serif; color: var(--ink2); cursor: pointer; }
+.convo-scroll { flex: 1; overflow: auto; padding: 8px 22px 16px; }
+.divider { display: flex; align-items: center; gap: 8px; margin: 18px 0 10px; font-size: 12px; }
+.divider::before, .divider::after { content: ""; flex: 1; border-top: 1px solid var(--line); }
+.divider-k { font-weight: 600; color: var(--ink2); }
+.msg { margin: 10px 0; max-width: 78%; } .msg.me { margin-left: auto; text-align: right; }
+.who { font-size: 11.5px; font-weight: 600; margin: 0 4px 3px; } .who span { font-weight: 400; color: var(--ink3); margin-left: 4px; }
+.bubble { display: inline-block; text-align: left; padding: 9px 12px; border-radius: 16px 16px 16px 5px; background: var(--bubble); font-size: 13px; line-height: 1.45; }
+.me .bubble { background: var(--me); color: #fff; border-radius: 16px 16px 5px 16px; }
+.aud { font-size: 10.5px; color: var(--ink3); margin: 3px 6px 0; }
+.att { margin-top: 7px; padding: 6px 9px; border-radius: 8px; background: var(--win); font-size: 12px; font-weight: 500; } .att span { font-size: 10px; color: var(--accent); margin-left: 4px; }
+.change { margin-top: 8px; padding: 6px 9px; border-left: 2px solid var(--accent); background: var(--win); border-radius: 4px; font-size: 12px; color: var(--ink2); }
+.change-l { display: block; font-size: 10.5px; color: var(--ink3); margin-bottom: 2px; }
+del { color: #b42318; background: #fde7e4; text-decoration: line-through; border-radius: 3px; padding: 0 2px; } ins { color: var(--green); background: #e3f3ea; text-decoration: none; border-radius: 3px; padding: 0 2px; }
+.event { text-align: center; font-size: 11px; color: var(--ink3); margin: 12px 0; }
+.composer { border-top: 1px solid var(--line); padding: 10px 16px 14px; }
+.audience { font-size: 12px; color: var(--ink2); margin-bottom: 6px; } .audience span { color: var(--ink3); } .audience b { font-weight: 600; color: var(--ink); }
+.input { display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; border-radius: 10px; box-shadow: 0 0 0 1px var(--line); color: var(--ink3); }
+.dock { width: 0; flex: none; display: flex; flex-direction: column; gap: 8px; align-items: center; padding: 12px 0; background: var(--side); border-left: 1px solid var(--line); overflow: hidden; transition: width .25s; }
+.opened .dock { width: 52px; }
+.sq { width: 34px; height: 34px; border-radius: 9px; display: grid; place-items: center; background: var(--win); box-shadow: 0 0 0 1px var(--line); color: var(--ink2); cursor: pointer; position: relative; }
+.sq span { position: absolute; top: -5px; right: -5px; min-width: 15px; height: 15px; padding: 0 3px; border-radius: 8px; background: var(--accent); color: #fff; font-size: 9px; font-weight: 700; display: grid; place-items: center; }
+.sq.on { box-shadow: 0 0 0 2px var(--accent); color: var(--accent); } .todo-sq { color: var(--accent); } .grave-sq { margin-top: auto; opacity: .6; }
+@media (max-width: 760px) { .left { width: 100%; } .right, .dock { display: none; } .opened .right { display: flex; position: absolute; inset: 0; } .win { position: relative; } }
+</style>
+</head>
+<body>
+<div class="stage">
+<header class="pitch">
+  <div class="pitch-text">
+    <div class="pitch-kicker" id="kicker"></div>
+    <h1 id="ptitle"></h1>
+    <p id="pdesc"></p>
+  </div>
+  <div class="pitch-swatches" id="swatches"></div>
+</header>
+
+<div class="win" id="win">
+  <div class="titlebar">
+    <div class="lights"><i></i><i></i><i></i></div>
+    <div class="brand"><span class="brand-mark"></span><span>RallyMail</span></div>
+    <div class="search"><svg viewBox="0 0 16 16"><circle cx="7" cy="7" r="4.5"/><path d="M10.5 10.5 14 14"/></svg><span>Search all mail</span><kbd>⌘K</kbd></div>
+    <div class="sync" id="sync"></div>
+    <button class="compose" title="New mail"><svg viewBox="0 0 16 16"><path d="M3 13h3l7-7-3-3-7 7z"/><path d="M9 4l3 3"/></svg></button>
+  </div>
+  <div class="body">
+    <aside class="left">
+      <div class="strip">
+        <span class="strip-tab on" id="chatsLabel"></span>
+        <span class="strip-court" id="stripCourt"></span>
+        <span class="strip-spacer"></span>
+        <button class="eye" title="Hide sorted chats"><svg viewBox="0 0 16 16"><path d="M1.5 8S4 3.5 8 3.5 14.5 8 14.5 8 12 12.5 8 12.5 1.5 8 1.5 8z"/><circle cx="8" cy="8" r="2"/></svg></button>
+      </div>
+      <div class="chats" id="chats"></div>
+      <div class="infos">
+        <div class="infos-head"><span id="infosLabel"></span><span class="infos-new">6 new</span></div>
+        <div id="infos"></div>
+      </div>
+    </aside>
+    <main class="right" id="right"></main>
+    <nav class="dock" id="dock"></nav>
+  </div>
+</div>
+<p class="hint">Click a chat on the left to open it · click a court to filter · Esc goes back to the board</p>
+</div>
+
+<script>
+const D = {
+  chats: [
+    { id: 0, people: "Lea Graf, Reto Meier", keyword: "Trainingsplan", line: "Halle B ist am Dienstag zu, Donnerstag 19:30?", time: "09:42", unread: 2, court: 0 },
+    { id: 1, people: "Reto Meier", keyword: "Jahresabrechnung", line: "Braucht die Belege der Auswärtsspiele bis Freitag", time: "08:15", unread: 1, court: 0, todo: true },
+    { id: 2, people: "Nina Keller", keyword: "Cheersfeed", line: "Feedback zum neuen Onboarding, drei Punkte", time: "Gestern", unread: 0, court: 1, project: "Cheersfeed" },
+    { id: 3, people: "Steuerverwaltung Bern", keyword: "Steuererklärung 2025", line: "Frist bis 30. November verlängert", time: "Gestern", unread: 0, court: 2, todo: true },
+    { id: 4, people: "Marco, Sandra und 3 weitere", keyword: "Turnier Samstag", line: "Wer fährt? Treffpunkt 7:30 am Bahnhof", time: "Mo", unread: 3, court: null, suggest: 0 },
+    { id: 5, people: "Mama", keyword: "Weihnachten", line: "Kommst du am 24. schon zum Mittagessen?", time: "So", unread: 0, court: 3 },
+    { id: 6, people: "Jonas Brunner", keyword: "Offerte Website", line: "Kann ich die Offerte bis Ende Monat haben?", time: "12. Okt", unread: 0, court: null, suggest: 1 },
+  ],
+  infos: [
+    { name: "GitHub", what: "3 pull requests, 1 failed check", n: 4 },
+    { name: "Coolify", what: "Deploy cheersfeed-web succeeded", n: 1 },
+    { name: "Digitec Galaxus", what: "Quittung Bestellung 4471-22", n: 0 },
+    { name: "Swiss Volley", what: "Newsletter Oktober", n: 1 },
+    { name: "SBB", what: "Dein Billett Bern–Luzern", n: 0 },
+  ],
+  courts: [
+    { name: "Volleyball", icon: "ball", open: 4, projects: [["Jahresabrechnung", 2, 6], ["Training", 2, 11], ["Andere", 0, 4]] },
+    { name: "Geschäft", icon: "case", open: 3, projects: [["Cheersfeed", 2, 9], ["Slackers", 1, 5], ["Andere", 0, 3]] },
+    { name: "Steuern", icon: "doc", open: 1, topics: ["Steuererklärung 2025", "Lohnausweis Q3", "AHV Beiträge"] },
+    { name: "Familie", icon: "home", open: 0, topics: ["Weihnachten", "Ferien Engadin", "Fotos Geburtstag"] },
+  ],
+  graveyard: { name: "Graveyard", n: 23 },
+};
+
+const ICONS = {
+  ball: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 2c-1.5 3-1.5 9 0 12M2.6 5.5c3 1 8 1 10.8 0M2.6 10.5c3-1 8-1 10.8 0"/></svg>',
+  case: '<svg viewBox="0 0 16 16"><rect x="2" y="5" width="12" height="8" rx="1.5"/><path d="M6 5V3.5h4V5M2 9h12"/></svg>',
+  doc: '<svg viewBox="0 0 16 16"><path d="M4 2h5l3 3v9H4z"/><path d="M9 2v3h3M6 8h4M6 10.5h4"/></svg>',
+  home: '<svg viewBox="0 0 16 16"><path d="M2.5 7.5 8 3l5.5 4.5V13h-11z"/><path d="M6.5 13V9.5h3V13"/></svg>',
+  grave: '<svg viewBox="0 0 16 16"><path d="M4 14V7a4 4 0 0 1 8 0v7z"/><path d="M8 6.5v4M6.5 8h3M2.5 14h11"/></svg>',
+  todo: '<svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M5.5 8.2 7.2 10 10.5 6.2"/></svg>',
+};
+const T = Object.assign({
+  chats: "Chats", infos: "Infos", courts: "Courts", todo: "To-do", todoHint: "goes away when you answer",
+  unsorted: "Unsorted", graveyard: "Graveyard", graveHint: "Could be deleted. Nothing here is deleted yet.",
+  boardHint: "Click a court to open it · drag topics or chats into it", newCourt: "New Court", sync: "Synced 2 min ago",
+}, THEME.labels || {});
+const icon = k => (THEME.icons && THEME.icons[k]) || ICONS[k];
+
+let open = null, court = null;
+const $ = id => document.getElementById(id);
+const initials = s => s.split(/[ ,]+/).filter(w => /^[A-ZÄÖÜ]/.test(w)).slice(0, 2).map(w => w[0]).join("");
+
+function renderChats() {
+  const list = court === null ? D.chats : D.chats.filter(c => c.court === court);
+  $("chats").innerHTML = list.map(c => `
+    <div class="row ${c.unread ? "unread" : ""} ${open === c.id ? "sel" : ""}" onclick="openChat(${c.id})">
+      <div class="avatar">${initials(c.people)}</div>
+      <div class="row-main">
+        <div class="row-top"><b>${c.keyword}</b><span class="dash"> – </span><span class="row-line">${c.line}</span></div>
+        <div class="row-people">${c.people}${c.court !== null ? `<span class="tag">${D.courts[c.court].name}</span>` : ""}${c.todo ? `<span class="tag todo">${T.todo}</span>` : ""}</div>
+      </div>
+      <div class="row-side"><span class="time">${c.time}</span>${c.unread ? `<span class="badge">${c.unread}</span>` : ""}</div>
+    </div>`).join("");
+  $("stripCourt").innerHTML = court === null ? "" : `<span class="chip on">${icon(D.courts[court].icon)}${D.courts[court].name}<i onclick="setCourt(null)">×</i></span>`;
+}
+
+function renderInfos() {
+  $("infos").innerHTML = D.infos.map(i => `
+    <div class="info ${i.n ? "unread" : ""}"><span class="info-dot"></span><b>${i.name}</b><span class="info-what">${i.what}</span>${i.n ? `<span class="info-n">${i.n}</span>` : ""}</div>`).join("");
+}
+
+function topicItem(c) {
+  return `<div class="item" onclick="openChat(${c.id})"><span class="item-k">${c.keyword}</span><span class="item-l">${c.line}</span><span class="item-p">${c.people}</span></div>`;
+}
+
+function renderBoard() {
+  const todos = D.chats.filter(c => c.todo), unsorted = D.chats.filter(c => c.court === null);
+  $("right").className = "right board";
+  $("right").innerHTML = `
+    <div class="board-head"><h2>${T.courts}</h2><span>${T.boardHint}</span></div>
+    <div class="board-scroll">
+      <section class="box todo-box">
+        <div class="box-head">${icon("todo")}<h3>${T.todo}</h3><span class="count">${todos.length}</span><span class="box-hint">${T.todoHint}</span></div>
+        ${todos.map(topicItem).join("")}
+      </section>
+      <section class="box unsorted-box">
+        <div class="box-head"><h3>${T.unsorted}</h3><span class="count muted">${unsorted.length}</span><button class="accept">Accept ${unsorted.length} suggestions</button></div>
+        ${unsorted.map(c => `<div class="item" onclick="openChat(${c.id})"><span class="item-k">${c.keyword}</span><span class="item-l">${c.line}</span><span class="suggest">${D.courts[c.suggest].name}?</span></div>`).join("")}
+      </section>
+      <div class="grid">
+        ${D.courts.map((k, i) => `
+          <section class="box court" onclick="setCourt(${i})">
+            <div class="box-head">${icon(k.icon)}<h3>${k.name}</h3>${k.open ? `<span class="count">${k.open} open</span>` : ""}</div>
+            ${k.projects ? k.projects.map(p => `<div class="proj"><span>${p[0]}</span>${p[1] ? `<span class="proj-open">${p[1]} open</span>` : ""}<span class="proj-n">${p[2]}</span></div>`).join("")
+                         : k.topics.map(t => `<div class="proj"><span>${t}</span></div>`).join("")}
+          </section>`).join("")}
+        <section class="box new-court">+ ${T.newCourt}</section>
+        <section class="box court grave">
+          <div class="box-head">${icon("grave")}<h3>${T.graveyard}</h3><span class="count muted">${D.graveyard.n}</span></div>
+          <p class="box-hint">${T.graveHint}</p>
+        </section>
+      </div>
+    </div>`;
+  $("dock").innerHTML = "";
+  $("win").classList.remove("opened");
+}
+
+function renderConversation() {
+  const c = D.chats[open];
+  $("right").className = "right convo";
+  const courtChip = c.court !== null ? `<span class="chip on">${icon(D.courts[c.court].icon)}${D.courts[c.court].name}</span>`
+    : `<span class="chip suggest">${D.courts[c.suggest].name}?</span>`;
+  $("right").innerHTML = `
+    <div class="convo-head">
+      <button class="back" onclick="closeChat()">‹</button>
+      <div><h2>${c.people}</h2><span class="sub">3 topics · lea.graf@vbc-bern.ch · reto.meier@vbc-bern.ch</span></div>
+      <span class="spacer"></span><button class="ghost">+ ${T.todo}</button><button class="ghost">Done</button>
+    </div>
+    <div class="convo-scroll">
+      <div class="divider"><span class="divider-k">Jahresabrechnung</span><span class="chip on">${icon("ball")}Volleyball</span></div>
+      <div class="msg them"><div class="who">Reto <span>Mo 18:02</span></div>
+        <div class="bubble">Ich brauche die Belege der Auswärtsspiele bis Freitag, sonst wird es knapp für die GV.<div class="att">Abrechnung_2025.pdf <span>v2</span></div></div>
+        <div class="aud">an dich · Kopie an Lea</div></div>
+      <div class="divider"><span class="divider-k">Trainingsplan</span>${courtChip}</div>
+      <div class="msg them"><div class="who">Lea <span>08:51</span></div>
+        <div class="bubble">Hallo zusammen, Halle B ist am Dienstag wegen der Sanierung zu. Können wir auf Donnerstag 19:00 ausweichen?</div>
+        <div class="aud">an Reto, dich</div></div>
+      <div class="msg them"><div class="who">Reto <span>09:12</span></div>
+        <div class="bubble">Donnerstag geht bei mir. Ich frage den Hauswart wegen dem Schlüssel.
+          <div class="change"><span class="change-l">changed Lea's text</span>Donnerstag <del>19:00</del> <ins>19:30</ins> ausweichen</div></div>
+        <div class="aud">an Lea, dich</div></div>
+      <div class="event">Sandra was added by Reto</div>
+      <div class="msg me"><div class="who">Du <span>09:40</span></div>
+        <div class="bubble">Passt, ich schicke den neuen Plan heute Abend rum. 🏐</div>
+        <div class="aud">an Lea, Reto · Kopie an Sandra</div></div>
+    </div>
+    <div class="composer">
+      <div class="audience"><span>To</span> <b>Lea</b>, <b>Reto</b> · <span>copy to</span> <b>Sandra</b></div>
+      <div class="input">Schreib eine Antwort…<kbd>⌘↩</kbd></div>
+    </div>`;
+  $("dock").innerHTML = `<div class="sq todo-sq" title="${T.todo}">${icon("todo")}<span>2</span></div>` +
+    D.courts.map((k, i) => `<div class="sq ${c.court === i ? "on" : ""}" title="${k.name}" onclick="setCourt(${i})">${icon(k.icon)}${k.open ? `<span>${k.open}</span>` : ""}</div>`).join("") +
+    `<div class="sq grave-sq" title="${T.graveyard}">${icon("grave")}</div>`;
+  $("win").classList.add("opened");
+}
+
+function render() {
+  renderChats();
+  open === null ? renderBoard() : renderConversation();
+  THEME.after && THEME.after();
+}
+function openChat(i) { open = i; render(); }
+function closeChat() { open = null; render(); }
+function setCourt(i) { court = i; if (i !== null && open !== null && D.chats[open].court !== i) open = null; render(); event && event.stopPropagation(); }
+document.addEventListener("keydown", e => { if (e.key === "Escape") { open = null; court = null; render(); } });
+
+$("kicker").textContent = THEME.kicker; $("ptitle").textContent = THEME.title; $("pdesc").innerHTML = THEME.desc;
+$("swatches").innerHTML = THEME.swatches.map(s => `<div class="sw"><i style="background:${s[0]}"></i><span>${s[1]}</span></div>`).join("");
+$("chatsLabel").textContent = T.chats; $("infosLabel").textContent = T.infos; $("sync").innerHTML = THEME.sync || `<span class="sync-dot"></span>${T.sync}`;
+renderInfos(); render();
+</script>
+</body>
+</html>
